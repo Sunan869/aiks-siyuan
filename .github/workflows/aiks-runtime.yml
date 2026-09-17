@@ -8,10 +8,17 @@ on:
       - ".github/workflows/aiks-runtime.yml"
       - "app/**"
       - "kernel/**"
+  push:
+    branches:
+      - aiks/v4.2
+    paths:
+      - ".github/workflows/aiks-runtime.yml"
+      - "app/**"
+      - "kernel/**"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: aiks-runtime-${{ github.event.pull_request.number || github.ref }}
@@ -101,12 +108,18 @@ jobs:
             Copy-Item $source -Destination (Join-Path $runtime $dir) -Recurse -Force
           }
 
+          $forkCommit = if ("${{ github.event_name }}" -eq "pull_request") {
+            "${{ github.event.pull_request.head.sha }}"
+          } else {
+            "${{ github.sha }}"
+          }
+
           $manifest = [ordered]@{
             workbenchVersion = "4.2.0"
             siyuanBaseVersion = "3.8.3"
             upstreamCommit = "8641553a1f07374001902d3ce773285db1292b2d"
             forkRepository = "Sunan869/aiks-siyuan"
-            forkCommit = "${{ github.sha }}"
+            forkCommit = $forkCommit
             profile = "aiks-embedded"
             platform = "windows-x64"
             bridgeProtocol = 1
@@ -133,3 +146,44 @@ jobs:
             ${{ runner.temp }}/aiks-siyuan-runtime-windows-x64.zip.sha256
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish immutable runtime release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/aiks/v4.2'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $shortSha = "${{ github.sha }}".Substring(0, 12)
+          $tag = "aiks-runtime-v4.2.0-$shortSha"
+          $repo = "${{ github.repository }}"
+          $zip = Join-Path $env:RUNNER_TEMP "aiks-siyuan-runtime-windows-x64.zip"
+          $sidecar = "$zip.sha256"
+          $title = "AIKS SiYuan Runtime 4.2.0 ($shortSha)"
+          $notes = @"
+          AIKS embedded SiYuan runtime.
+
+          - Workbench: 4.2.0
+          - SiYuan base: 3.8.3
+          - Upstream commit: 8641553a1f07374001902d3ce773285db1292b2d
+          - Fork commit: ${{ github.sha }}
+          - Profile: aiks-embedded
+          - Platform: windows-x64
+          - Bridge protocol: 1
+          "@
+
+          $previousPreference = $ErrorActionPreference
+          $ErrorActionPreference = "Continue"
+          & gh release view $tag --repo $repo *> $null
+          $releaseExists = ($LASTEXITCODE -eq 0)
+          $ErrorActionPreference = $previousPreference
+
+          if ($releaseExists) {
+            & gh release upload $tag $zip $sidecar --repo $repo --clobber
+          } else {
+            & gh release create $tag $zip $sidecar --repo $repo --target "${{ github.sha }}" --title $title --notes $notes
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to publish runtime release $tag"
+          }
+
+          Write-Host "Published runtime release: $tag"
