@@ -33,4 +33,12 @@ export {
     presentAiksRootLabels,
     type AiksRootLabelElementLike,
 } from "./presentation";
+export {
+    installAiksWorkbenchHostApi,
+    openAiksMainGraph,
+    openAiksMainGraphWithRuntime,
+    type AiksMainGraphOpenResult,
+    type AiksMainGraphRuntime,
+    type AiksWorkbenchHostApi,
+} from "./hostApi";
 export {initializeAiksEmbeddedWorkbench} from "./bootstrap";
