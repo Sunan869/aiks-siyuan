@@ -17,7 +17,9 @@ export {
 export {AIKS_SEARCH, type AiksSearchModel, type AiksSearchScope} from "./search";
 export {
     AIKS_TOPBAR_ENTRY_IDS,
+    applyAiksWorkbenchConfigPolicy,
     applyAiksWorkbenchLayoutPolicy,
     getAiksRootDisplayName,
     type AiksUiLayoutLike,
+    type AiksWorkbenchConfigLike,
 } from "./runtime";
