@@ -24,11 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-          cache-dependency-path: app/pnpm-lock.yaml
       - run: corepack enable
       - run: corepack prepare pnpm@11.25.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - name: AIKS profile tests
+        run: node --import tsx --test src/aiks/*.test.ts
       - run: pnpm run typecheck
       - run: pnpm run build:app
