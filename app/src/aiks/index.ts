@@ -17,3 +17,11 @@ export {
     type AiksRootPresentation,
 } from "./roots";
 export { isAiksReadOnlyPath } from "./readonly";
+export {
+    AIKS_SEARCH_DEFAULT_SCOPE,
+    AIKS_SEARCH_FILTERS,
+    AIKS_SEARCH_SCOPES,
+    type AiksSearchFilter,
+    type AiksSearchScope,
+    type AiksSearchScopeOption,
+} from "./search";
