@@ -13,7 +13,6 @@ import {collectBazaarTabSearchStrings, mountBazaarTab} from "../bazaarTab";
 /// #if !MOBILE
 import {collectKeymapTabSearchStrings, mountKeymapTab} from "../tabs/keymapUi";
 /// #endif
-import {isBazaarAvailable} from "../../util/bazaarAvailability";
 import {SettingBuilder, type SettingTab} from "./builder";
 import {registerEditorTab} from "../tabs/editorTab";
 import {registerFileTab} from "../tabs/fileTab";
@@ -54,7 +53,8 @@ const settingTabs = {
         id: "bazaar",
         icon: "iconBazaar",
         title: () => window.siyuan.languages.bazaar,
-        hidden: () => !isBazaarAvailable(),
+        // 产品定制：集市入口已下线
+        hidden: () => true,
         searchStrings: collectBazaarTabSearchStrings,
         mount: mountBazaarTab,
     }),
@@ -62,6 +62,8 @@ const settingTabs = {
         id: "flashcard",
         icon: "iconRiffCard",
         title: () => window.siyuan.languages.riffCard,
+        // 产品定制：闪卡设置已下线
+        hidden: () => true,
         defaultSave: flashcardConfigApi.patch,
     }, registerFlashcardTab),
     ai: setting.tab({
@@ -75,6 +77,8 @@ const settingTabs = {
         id: "secretsVariables",
         icon: "iconSquareAsterisk",
         title: () => window.siyuan.languages.secretsVariables,
+        // 产品定制：秘钥与变量已下线
+        hidden: () => true,
         defaultSave: secretsConfigApi.patch,
     }, registerSecretsVariablesTab),
     assets: setting.panel({
@@ -110,6 +114,8 @@ const settingTabs = {
         id: "sync",
         icon: "iconCloud",
         title: () => window.siyuan.languages.accountSync,
+        // 产品定制：账号与同步已下线
+        hidden: () => true,
         defaultSave: patchSyncConfig,
         afterMount: mountSyncTabExtras,
     }, registerSyncTab),
@@ -117,17 +123,23 @@ const settingTabs = {
         id: "access",
         icon: "iconLock",
         title: () => window.siyuan.languages.authentication,
+        // 产品定制：鉴权已下线
+        hidden: () => true,
         afterMount: mountAccessTab,
     }, registerAccessTab),
     app: setting.tab({
         id: "app",
         icon: "iconLayoutGrid",
         title: () => window.siyuan.languages.application,
+        // 产品定制：应用已下线
+        hidden: () => true,
     }, registerAppTab),
     about: setting.tab({
         id: "about",
         icon: "iconInfo",
         title: () => window.siyuan.languages.about,
+        // 产品定制：关于已下线
+        hidden: () => true,
     }, registerAboutTab),
 };
 

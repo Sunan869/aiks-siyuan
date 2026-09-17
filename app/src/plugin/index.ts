@@ -290,7 +290,7 @@ export class Plugin {
             }
         } else if (!isWindow() && window.siyuan.storage) {
             if (!document.contains(iconElement) || previousLocation !== iconElement.getAttribute("data-location")) {
-                document.querySelector("#" + (iconElement.getAttribute("data-location") === "right" ? "barPlugins" : "drag"))?.before(iconElement);
+                document.querySelector("#" + (iconElement.getAttribute("data-location") === "right" ? "barCommand" : "drag"))?.before(iconElement);
             }
         }
         if (isNew) {

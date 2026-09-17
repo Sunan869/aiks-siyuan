@@ -228,7 +228,7 @@ const mountPlugin = (plugin: Plugin) => {
                     document.getElementById("menuPluginTopBar")?.after(element);
                 }
             } else if (!isWindow()) {
-                document.querySelector("#" + (element.getAttribute("data-location") === "right" ? "barPlugins" : "drag")).before(element);
+                document.querySelector("#" + (element.getAttribute("data-location") === "right" ? "barCommand" : "drag"))?.before(element);
             }
         });
     }

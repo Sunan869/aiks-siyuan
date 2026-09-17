@@ -48,3 +48,5 @@ muslbin/
 
 # Workflows
 **/__pycache__
+
+.workbuddy/

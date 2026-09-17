@@ -558,17 +558,12 @@ const toolbarCatalogSection: IEntryCatalogSection = {
 export const TOP_BAR_ROOT_PATH = "topBar";
 
 const topBarBuiltinChildren = [
-    node("barSync", lang("syncNow")),
     node("barBack", lang("goBack")),
     node("barForward", lang("goForward")),
     fixed("drag", lang("entryTopBarDrag")),
-    node("toolbarVIP", lang("accountDisplayVIP"), true, undefined, undefined, {
-        defaultVisible: () => window.siyuan.config.account.displayVIP,
-    }),
     node("toolbarTitle", lang("accountDisplayTitle"), true, undefined, undefined, {
         defaultVisible: () => window.siyuan.config.account.displayTitle,
     }),
-    node("barPlugins", lang("plugin")),
     node("barCommand", lang("commandPanel")),
     node("barSearch", lang("globalSearch")),
     node("barZoom", lang("zoom")),
@@ -588,7 +583,6 @@ const dockBuiltinChildren = [
     node("bookmark", lang("bookmark")),
     node("tag", lang("tag")),
     node("backlink", lang("backlinks")),
-    node("agentChat", lang("ai")),
     node("inbox", lang("inbox"), false),
     node("graph", lang("graphView"), false),
     node("globalGraph", lang("globalGraph"), false),
@@ -600,7 +594,6 @@ const dockBuiltinPositions = new Map<string, TPluginDockPosition>([
     ["bookmark", "LeftBottom"],
     ["tag", "LeftBottom"],
     ["backlink", "RightBottom"],
-    ["agentChat", "RightTop"],
     ["inbox", "LeftTop"],
     ["graph", "RightTop"],
     ["globalGraph", "RightTop"],
@@ -1114,7 +1107,7 @@ export const refreshTopBarCatalog = (plugins: ITopBarCatalogPlugin[]) => {
         });
     });
     const dragIndex = topBarBuiltinChildren.findIndex((item) => item.key === "drag");
-    const pluginMenuIndex = topBarBuiltinChildren.findIndex((item) => item.key === "barPlugins");
+    const pluginMenuIndex = topBarBuiltinChildren.findIndex((item) => item.key === "barCommand");
     topBarCatalogSection.children = [
         ...topBarBuiltinChildren.slice(0, dragIndex),
         ...leftPluginNodes,

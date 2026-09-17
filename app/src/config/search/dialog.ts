@@ -66,7 +66,8 @@ const syncSettingSearch = (dialogElement: HTMLElement, app: App) => {
         "visibleItemIds" | "visibleGroupIds" | "unavailableItems">) | undefined;
     for (const item of dialogElement.querySelectorAll<HTMLElement>(".config__side .b3-list-item")) {
         const tabId = item.getAttribute("data-name") as TSettingTab | null;
-        if (!tabId) {
+        // 产品定制：已下线的标签（壳层渲染为 fn__none）不参与搜索
+        if (!tabId || item.classList.contains("fn__none")) {
             item.style.display = "none";
             continue;
         }
