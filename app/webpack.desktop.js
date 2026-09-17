@@ -18,7 +18,7 @@ module.exports = (env, argv) => {
             path: path.resolve(__dirname, "stage/build/desktop"),
         },
         entry: {
-            "main": "./src/index.ts",
+            "main": ["./src/aiks/index.ts", "./src/index.ts"],
         },
         optimization: {
             minimize: true,
@@ -114,6 +114,7 @@ module.exports = (env, argv) => {
             }),
             new webpack.DefinePlugin({
                 SIYUAN_VERSION: JSON.stringify(pkg.version),
+                SIYUAN_PROFILE: JSON.stringify(process.env.SIYUAN_PROFILE || ""),
                 NODE_ENV: JSON.stringify(argv.mode),
             }),
             new MiniCssExtractPlugin({
