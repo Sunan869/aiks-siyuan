@@ -34,6 +34,10 @@ export type AiksWorkbenchConfigLike = {
     system?: {
         disabledFeatures?: string[];
     };
+    fileTree?: {
+        openFilesUseCurrentTab?: boolean;
+        maxOpenTabCount?: number;
+    };
     uiLayout: AiksUiLayoutLike;
 };
 
@@ -65,6 +69,10 @@ export const applyAiksWorkbenchConfigPolicy = <T extends AiksWorkbenchConfigLike
         if (!config.system.disabledFeatures.includes("ai")) {
             config.system.disabledFeatures.push("ai");
         }
+    }
+    if (config.fileTree) {
+        config.fileTree.openFilesUseCurrentTab = true;
+        config.fileTree.maxOpenTabCount = 1;
     }
     return config;
 };
