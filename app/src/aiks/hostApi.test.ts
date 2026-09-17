@@ -66,9 +66,9 @@ test("aiks AI assist host action delegates only doc identity and operation to th
     const hostModule = await import("./hostApi");
     const calls: Array<{ docId: string; operation: string }> = [];
     const expected = {
-        operation: "summary",
+        operation: "summary" as const,
         summary: "结构化摘要",
-        tags: [],
+        tags: [] as string[],
     };
     const target = {
         __AIKS_BRIDGE__: {
