@@ -1,0 +1,30 @@
+:root[data-aiks-profile="embedded"] {
+    --aiks-bg-canvas: #f9fafb;
+    --aiks-bg-surface: #ffffff;
+    --aiks-bg-hover: #f3f4f6;
+    --aiks-bg-active: #eff6ff;
+    --aiks-border: #e5e7eb;
+    --aiks-text-primary: #111827;
+    --aiks-text-secondary: #6b7280;
+    --aiks-accent: #2563eb;
+    --aiks-radius-sm: 6px;
+    --aiks-radius-md: 8px;
+    --aiks-space-1: 4px;
+    --aiks-space-2: 8px;
+    --aiks-space-3: 12px;
+    --aiks-space-4: 16px;
+    --aiks-font-ui: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-aiks-profile="embedded"] {
+        --aiks-bg-canvas: #111827;
+        --aiks-bg-surface: #1f2937;
+        --aiks-bg-hover: #374151;
+        --aiks-bg-active: rgba(37, 99, 235, 0.2);
+        --aiks-border: #374151;
+        --aiks-text-primary: #f9fafb;
+        --aiks-text-secondary: #9ca3af;
+        --aiks-accent: #60a5fa;
+    }
+}
