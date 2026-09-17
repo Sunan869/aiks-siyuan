@@ -1,3 +1,4 @@
+import {installAiksWorkbenchHostApi} from "./hostApi";
 import {isAiksEmbedded} from "./profile";
 import {initializeAiksRootPresentation} from "./presentation";
 
@@ -9,6 +10,7 @@ export const initializeAiksEmbeddedWorkbench = () => {
     }
 
     document.documentElement.dataset.aiksProfile = "embedded";
+    installAiksWorkbenchHostApi(window);
     stopRootPresentation?.();
     stopRootPresentation = initializeAiksRootPresentation(document);
 };
