@@ -16,3 +16,4 @@ export {
     findAiksRoot,
     type AiksRootPresentation,
 } from "./roots";
+export { isAiksReadOnlyPath } from "./readonly";
