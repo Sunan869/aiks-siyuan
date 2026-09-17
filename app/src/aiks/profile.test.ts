@@ -1,5 +1,5 @@
 import test from "node:test";
-import assert from "node:assert/strict";
+import * as assert from "node:assert/strict";
 
 test("aiks embedded profile disables standalone product surfaces", async () => {
     let profileModule: typeof import("./profile") | undefined;
