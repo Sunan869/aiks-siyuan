@@ -70,6 +70,39 @@ test("aiks runtime trims dock registration to document tree and auxiliary panels
     assert.deepEqual(layout.layout, {instance: "Layout"});
 });
 
+test("aiks runtime forces embedded chrome and native AI feature policy", async () => {
+    let runtimeModule: typeof import("./runtime") | undefined;
+    try {
+        runtimeModule = await import("./runtime");
+    } catch {
+        runtimeModule = undefined;
+    }
+
+    assert.ok(runtimeModule, "AIKS workbench runtime module must exist");
+    const config = {
+        appearance: {hideToolbar: false},
+        system: {disabledFeatures: ["readonly-feature"]},
+        uiLayout: {
+            hideDock: true,
+            layout: {instance: "Layout"},
+            left: {data: [[{type: "file"}, {type: "agentChat"}], []]},
+            right: {data: [[{type: "outline"}, {type: "graph"}], [{type: "backlink"}]]},
+            bottom: {data: [[{type: "globalGraph"}], []]},
+        },
+    };
+
+    const result = runtimeModule.applyAiksWorkbenchConfigPolicy(config);
+    runtimeModule.applyAiksWorkbenchConfigPolicy(config);
+
+    assert.equal(result, config, "config policy should preserve the native config object identity");
+    assert.equal(config.appearance.hideToolbar, true, "SiYuan standalone top bar must stay hidden inside AIKS");
+    assert.deepEqual(config.system.disabledFeatures, ["readonly-feature", "ai"]);
+    assert.deepEqual(config.uiLayout.left.data, [[{type: "file"}], []]);
+    assert.deepEqual(config.uiLayout.right.data, [[{type: "outline"}], [{type: "backlink"}]]);
+    assert.deepEqual(config.uiLayout.bottom.data, [[], []]);
+    assert.equal(config.uiLayout.hideDock, false);
+});
+
 test("aiks runtime exposes only compact toolbar entry ids", async () => {
     let runtimeModule: typeof import("./runtime") | undefined;
     try {
