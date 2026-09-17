@@ -27,6 +27,16 @@ export type AiksUiLayoutLike = {
     bottom?: AiksDockConfig;
 };
 
+export type AiksWorkbenchConfigLike = {
+    appearance?: {
+        hideToolbar?: boolean;
+    };
+    system?: {
+        disabledFeatures?: string[];
+    };
+    uiLayout: AiksUiLayoutLike;
+};
+
 const LEFT_DOCK_TYPES = new Set(["file"]);
 const RIGHT_DOCK_TYPES = new Set(["outline", "backlink"]);
 
@@ -43,6 +53,20 @@ export const applyAiksWorkbenchLayoutPolicy = <T extends AiksUiLayoutLike>(layou
     filterDock(layout.bottom, new Set());
     layout.hideDock = false;
     return layout;
+};
+
+export const applyAiksWorkbenchConfigPolicy = <T extends AiksWorkbenchConfigLike>(config: T): T => {
+    applyAiksWorkbenchLayoutPolicy(config.uiLayout);
+    if (config.appearance) {
+        config.appearance.hideToolbar = true;
+    }
+    if (config.system) {
+        config.system.disabledFeatures ||= [];
+        if (!config.system.disabledFeatures.includes("ai")) {
+            config.system.disabledFeatures.push("ai");
+        }
+    }
+    return config;
 };
 
 export const getAiksRootDisplayName = (pathOrName: string): string | undefined => {
