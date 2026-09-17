@@ -1,3 +1,7 @@
+import {initializeAiksEmbeddedWorkbench} from "./bootstrap";
+
+initializeAiksEmbeddedWorkbench();
+
 export {
     AIKS_EMBEDDED_PROFILE_NAME,
     getAiksEmbeddedProfile,
@@ -23,3 +27,10 @@ export {
     type AiksUiLayoutLike,
     type AiksWorkbenchConfigLike,
 } from "./runtime";
+export {
+    AIKS_ROOT_TREE_SELECTOR,
+    initializeAiksRootPresentation,
+    presentAiksRootLabels,
+    type AiksRootLabelElementLike,
+} from "./presentation";
+export {initializeAiksEmbeddedWorkbench} from "./bootstrap";
