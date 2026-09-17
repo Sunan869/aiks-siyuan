@@ -1,11 +1,9 @@
 import test from "node:test";
 import * as assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {fileURLToPath} from "node:url";
-import {dirname, resolve} from "node:path";
+import {resolve} from "node:path";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const desktopWebpack = readFileSync(resolve(here, "../../webpack.desktop.js"), "utf8");
+const desktopWebpack = readFileSync(resolve(process.cwd(), "webpack.desktop.js"), "utf8");
 
 test("desktop bundle boots the AIKS embedded profile before SiYuan", () => {
     assert.match(
