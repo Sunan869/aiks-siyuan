@@ -1,5 +1,5 @@
 import {Constants} from "../constants";
-import {applyAiksWorkbenchLayoutPolicy} from "../aiks/runtime";
+import {applyAiksWorkbenchConfigPolicy} from "../aiks/runtime";
 import {isAiksEmbedded} from "../aiks/profile";
 
 export const ensureUILayout = () => {
@@ -7,6 +7,6 @@ export const ensureUILayout = () => {
         window.siyuan.config.uiLayout = JSON.parse(JSON.stringify(Constants.SIYUAN_EMPTY_LAYOUT));
     }
     if (isAiksEmbedded()) {
-        applyAiksWorkbenchLayoutPolicy(window.siyuan.config.uiLayout);
+        applyAiksWorkbenchConfigPolicy(window.siyuan.config);
     }
 };
