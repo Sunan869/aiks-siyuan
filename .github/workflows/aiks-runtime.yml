@@ -27,7 +27,6 @@ jobs:
       CGO_ENABLED: 1
       GOOS: windows
       GOARCH: amd64
-      CC: C:\msys64\mingw64\bin\gcc.exe
     steps:
       - name: Checkout aiks-siyuan
         uses: actions/checkout@v6
