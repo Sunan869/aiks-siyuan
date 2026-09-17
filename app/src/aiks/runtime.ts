@@ -13,12 +13,10 @@ export const AIKS_TOPBAR_ENTRY_IDS = [
 
 type AiksDockItem = {
     type?: string;
-    [key: string]: unknown;
 };
 
 type AiksDockConfig = {
     data?: AiksDockItem[][];
-    [key: string]: unknown;
 };
 
 export type AiksUiLayoutLike = {
@@ -27,7 +25,6 @@ export type AiksUiLayoutLike = {
     left?: AiksDockConfig;
     right?: AiksDockConfig;
     bottom?: AiksDockConfig;
-    [key: string]: unknown;
 };
 
 const LEFT_DOCK_TYPES = new Set(["file"]);
