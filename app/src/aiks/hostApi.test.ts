@@ -85,3 +85,13 @@ test("aiks AI assist host action delegates only doc identity and operation to th
     assert.deepEqual(calls, [{docId: "doc-123", operation: "summary"}]);
     assert.deepEqual(result, expected);
 });
+
+test("aiks Workbench host API keeps product-level search out of the SiYuan host bridge", async () => {
+    const hostModule = await import("./hostApi");
+    const target = {} as unknown as Window;
+
+    const api = hostModule.installAiksWorkbenchHostApi(target);
+
+    assert.equal("showSearch" in api, false);
+    assert.equal("showWorkbenchSearch" in api, false);
+});
