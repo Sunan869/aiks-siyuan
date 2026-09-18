@@ -13,6 +13,7 @@ test("runtime release assets are immutable after a commit tag is published", () 
     const workflow = runtimeWorkflow();
 
     assert.doesNotMatch(workflow, /--clobber/);
+    assert.doesNotMatch(workflow, /\$tag:/);
     assert.match(workflow, /gh release download/);
     assert.match(workflow, /Existing runtime release hash mismatch/);
 });
