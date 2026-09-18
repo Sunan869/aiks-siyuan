@@ -24,14 +24,16 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import textwrap
 
           conf = Path("kernel/model/conf.go")
           text = conf.read_text(encoding="utf-8")
           old = "if err := filelock.WriteFile(confPath, data); err != nil {"
           new = "if err := writeConfFile(confPath, data); err != nil {"
-          if old not in text:
+          if old not in text and new not in text:
               raise SystemExit("conf.go write call anchor not found")
-          conf.write_text(text.replace(old, new, 1), encoding="utf-8")
+          if old in text:
+              conf.write_text(text.replace(old, new, 1), encoding="utf-8")
 
           index = Path("app/src/index.ts")
           text = index.read_text(encoding="utf-8")
@@ -49,66 +51,68 @@ jobs:
               text = text.replace(condition_old, condition_new, 1)
           index.write_text(text, encoding="utf-8")
 
-          Path("kernel/model/conf_write.go").write_text(r'''package model
+          go_source = textwrap.dedent('''\
+          package model
 
-import (
-    "errors"
-    "os"
-    "strings"
-    "time"
+          import (
+              "errors"
+              "os"
+              "strings"
+              "time"
 
-    "github.com/88250/gulu"
-)
+              "github.com/88250/gulu"
+          )
 
-const confWriteMaxAttempts = 6
+          const confWriteMaxAttempts = 6
 
-func writeConfFile(filePath string, data []byte) error {
-    return writeConfFileWithRetry(filePath, data, gulu.File.WriteFileSafer, time.Sleep)
-}
+          func writeConfFile(filePath string, data []byte) error {
+              return writeConfFileWithRetry(filePath, data, gulu.File.WriteFileSafer, time.Sleep)
+          }
 
-func writeConfFileWithRetry(
-    filePath string,
-    data []byte,
-    writer func(string, []byte, os.FileMode) error,
-    sleep func(time.Duration),
-) error {
-    var err error
-    for attempt := 1; attempt <= confWriteMaxAttempts; attempt++ {
-        err = writer(filePath, data, 0644)
-        if err == nil {
-            return nil
-        }
-        if !isTransientConfWriteError(err) || attempt == confWriteMaxAttempts {
-            return err
-        }
-        sleep(time.Duration(attempt*50) * time.Millisecond)
-    }
-    return err
-}
+          func writeConfFileWithRetry(
+              filePath string,
+              data []byte,
+              writer func(string, []byte, os.FileMode) error,
+              sleep func(time.Duration),
+          ) error {
+              var err error
+              for attempt := 1; attempt <= confWriteMaxAttempts; attempt++ {
+                  err = writer(filePath, data, 0644)
+                  if err == nil {
+                      return nil
+                  }
+                  if !isTransientConfWriteError(err) || attempt == confWriteMaxAttempts {
+                      return err
+                  }
+                  sleep(time.Duration(attempt*50) * time.Millisecond)
+              }
+              return err
+          }
 
-func isTransientConfWriteError(err error) bool {
-    if err == nil {
-        return false
-    }
-    if errors.Is(err, os.ErrPermission) {
-        return true
-    }
-    message := strings.ToLower(err.Error())
-    return strings.Contains(message, "access is denied") ||
-        strings.Contains(message, "used by another process") ||
-        strings.Contains(message, "being used by another process")
-}
-''', encoding="utf-8")
+          func isTransientConfWriteError(err error) bool {
+              if err == nil {
+                  return false
+              }
+              if errors.Is(err, os.ErrPermission) {
+                  return true
+              }
+              message := strings.ToLower(err.Error())
+              return strings.Contains(message, "access is denied") ||
+                  strings.Contains(message, "used by another process") ||
+                  strings.Contains(message, "being used by another process")
+          }
+          ''')
+          Path("kernel/model/conf_write.go").write_text(go_source, encoding="utf-8")
           PY
 
           gofmt -w kernel/model/conf_write.go kernel/model/conf_write_test.go
-          rm .github/workflows/apply-v42-siyuan-resilience.yml
 
       - name: Commit implementation
         shell: bash
         run: |
           git config user.name "AIKS Automation"
           git config user.email "actions@users.noreply.github.com"
-          git add -A
+          git add kernel/model/conf.go kernel/model/conf_write.go kernel/model/conf_write_test.go app/src/index.ts
+          git diff --cached --quiet && exit 0
           git commit -m "fix(v4.2): harden embedded SiYuan runtime"
           git push origin HEAD:fix/v4.2-embedded-runtime-resilience
