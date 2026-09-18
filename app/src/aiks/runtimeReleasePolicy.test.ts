@@ -1,9 +1,9 @@
-import assert from "node:assert/strict";
+import assert = require("node:assert/strict");
 import {readFileSync} from "node:fs";
-import test from "node:test";
-import {fileURLToPath} from "node:url";
+import path = require("node:path");
+import test = require("node:test");
 
-const workflowPath = fileURLToPath(new URL("../../../.github/workflows/aiks-runtime.yml", import.meta.url));
+const workflowPath = path.resolve(__dirname, "../../../.github/workflows/aiks-runtime.yml");
 
 function runtimeWorkflow(): string {
     return readFileSync(workflowPath, "utf8");
