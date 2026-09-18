@@ -166,7 +166,8 @@ jobs:
           $shortSha = "${{ github.sha }}".Substring(0, 12)
           $tag = "aiks-runtime-v4.2.0-$shortSha"
           $repo = "${{ github.repository }}"
-          $zip = Join-Path $env:RUNNER_TEMP "aiks-siyuan-runtime-windows-x64.zip"
+          $assetName = "aiks-siyuan-runtime-windows-x64.zip"
+          $zip = Join-Path $env:RUNNER_TEMP $assetName
           $sidecar = "$zip.sha256"
           $title = "AIKS SiYuan Runtime 4.2.0 ($shortSha)"
           $notes = @"
@@ -188,12 +189,40 @@ jobs:
           $ErrorActionPreference = $previousPreference
 
           if ($releaseExists) {
-            & gh release upload $tag $zip $sidecar --repo $repo --clobber
+            $targetCommit = (& gh release view $tag --repo $repo --json targetCommitish --jq '.targetCommitish').Trim()
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to inspect existing runtime release $tag"
+            }
+            if ($targetCommit -ne "${{ github.sha }}") {
+              throw "Existing runtime release target mismatch for $tag: expected ${{ github.sha }}, got $targetCommit"
+            }
+
+            $existingDir = Join-Path $env:RUNNER_TEMP "existing-runtime-release-$shortSha"
+            if (Test-Path $existingDir) { Remove-Item $existingDir -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $existingDir | Out-Null
+            & gh release download $tag --repo $repo --pattern "$assetName*" --dir $existingDir
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download existing runtime release $tag for verification"
+            }
+
+            $publishedZip = Join-Path $existingDir $assetName
+            $publishedSidecar = "$publishedZip.sha256"
+            if (-not (Test-Path $publishedZip) -or -not (Test-Path $publishedSidecar)) {
+              throw "Existing runtime release is incomplete: $tag"
+            }
+
+            $publishedHash = (Get-FileHash -Algorithm SHA256 $publishedZip).Hash.ToLowerInvariant()
+            $declaredHashLine = (Get-Content -LiteralPath $publishedSidecar -Raw).Trim()
+            $declaredHash = ($declaredHashLine -split '\s+')[0].ToLowerInvariant()
+            if ($publishedHash -ne $declaredHash) {
+              throw "Existing runtime release hash mismatch for $tag: archive=$publishedHash sidecar=$declaredHash"
+            }
+
+            Write-Host "Immutable runtime release already exists and passed verification: $tag"
           } else {
             & gh release create $tag $zip $sidecar --repo $repo --target "${{ github.sha }}" --title $title --notes $notes
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to publish runtime release $tag"
+            }
+            Write-Host "Published immutable runtime release: $tag"
           }
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to publish runtime release $tag"
-          }
-
-          Write-Host "Published runtime release: $tag"
