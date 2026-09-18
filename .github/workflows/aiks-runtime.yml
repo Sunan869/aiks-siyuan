@@ -72,6 +72,16 @@ jobs:
         shell: pwsh
         run: pnpm install --frozen-lockfile
 
+      - name: AIKS profile tests
+        working-directory: app
+        shell: pwsh
+        run: node --import tsx --test src/aiks/*.test.ts
+
+      - name: Typecheck embedded frontend
+        working-directory: app
+        shell: pwsh
+        run: pnpm run typecheck
+
       - name: Build embedded frontend
         working-directory: app
         shell: pwsh
