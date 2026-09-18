@@ -194,7 +194,7 @@ jobs:
               throw "Failed to inspect existing runtime release $tag"
             }
             if ($targetCommit -ne "${{ github.sha }}") {
-              throw "Existing runtime release target mismatch for $tag: expected ${{ github.sha }}, got $targetCommit"
+              throw "Existing runtime release target mismatch for ${tag}: expected ${{ github.sha }}, got $targetCommit"
             }
 
             $existingDir = Join-Path $env:RUNNER_TEMP "existing-runtime-release-$shortSha"
@@ -215,7 +215,7 @@ jobs:
             $declaredHashLine = (Get-Content -LiteralPath $publishedSidecar -Raw).Trim()
             $declaredHash = ($declaredHashLine -split '\s+')[0].ToLowerInvariant()
             if ($publishedHash -ne $declaredHash) {
-              throw "Existing runtime release hash mismatch for $tag: archive=$publishedHash sidecar=$declaredHash"
+              throw "Existing runtime release hash mismatch for ${tag}: archive=$publishedHash sidecar=$declaredHash"
             }
 
             Write-Host "Immutable runtime release already exists and passed verification: $tag"
