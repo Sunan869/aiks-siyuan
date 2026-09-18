@@ -1,7 +1,7 @@
-import assert = require("node:assert/strict");
+import * as assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import path = require("node:path");
-import test = require("node:test");
+import * as path from "node:path";
+import {test} from "node:test";
 
 const workflowPath = path.resolve(__dirname, "../../../.github/workflows/aiks-runtime.yml");
 
