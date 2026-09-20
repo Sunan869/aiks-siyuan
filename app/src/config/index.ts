@@ -14,7 +14,7 @@ import {getFrontend} from "../util/functions";
 import {showMessage} from "../dialog/message";
 import {escapeHtml} from "../util/escape";
 import {isBazaarAvailable} from "../util/bazaarAvailability";
-import {getSettingTabDefs} from "./setting/tabs";
+import {getSettingTab, getSettingTabDefs} from "./setting/tabs";
 import {clearAccessTabElement} from "./tabs/accessRuntime";
 import {clearSyncTabElement} from "./tabs/syncRuntime";
 import type {TSettingTab} from "./setting/tabs";
@@ -95,6 +95,10 @@ const openSettingDialog = (app: App, initialTab: TSettingTab = "editor") => {
 /// #endif
 
 export const openSetting = (app: App, tab?: TSettingTab) => {
+    if (tab && getSettingTab(tab).hidden?.()) {
+        // 产品定制：已下线的标签不可作为初始页，回退到默认页
+        tab = undefined;
+    }
     if (tab === "bazaar" && !isBazaarAvailable()) {
         return;
     }

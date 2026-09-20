@@ -130,13 +130,10 @@ test("entry catalog paths are unique and indexed", () => {
 test("top bar catalog includes a fixed drag boundary in built-in DOM order", () => {
     assert.equal(TOP_BAR_ROOT_PATH, "topBar");
     assert.deepEqual(getEntryCatalogChildren(TOP_BAR_ROOT_PATH).map((item) => item.key), [
-        "barSync",
         "barBack",
         "barForward",
         "drag",
-        "toolbarVIP",
         "toolbarTitle",
-        "barPlugins",
         "barCommand",
         "barSearch",
         "barZoom",
@@ -172,7 +169,6 @@ test("top bar account entries use legacy account switches only as defaults", () 
             siyuan: {
                 config: {
                     account: {
-                        displayVIP: false,
                         displayTitle: true,
                     },
                 },
@@ -180,7 +176,6 @@ test("top bar account entries use legacy account switches only as defaults", () 
         },
     });
     try {
-        assert.equal(getEntryCatalogDefaultVisibility("topBar.toolbarVIP"), false);
         assert.equal(getEntryCatalogDefaultVisibility("topBar.toolbarTitle"), true);
         assert.equal(getEntryCatalogDefaultVisibility("topBar.barSearch"), true);
         assert.equal(getEntryCatalogDefaultVisibility("topBar.drag"), true);
@@ -229,12 +224,11 @@ test("top bar catalog inserts plugin entries on their declared side of the fixed
         }]);
         const children = getEntryCatalogChildren(TOP_BAR_ROOT_PATH);
         const keys = children.map((item) => item.key);
-        assert.deepEqual(keys.slice(0, 5), ["barSync", "barBack", "barForward", leftKey, "drag"]);
+        assert.deepEqual(keys.slice(0, 4), ["barBack", "barForward", leftKey, "drag"]);
         assert.deepEqual(keys.slice(keys.indexOf("toolbarTitle"), keys.indexOf("barCommand")), [
             "toolbarTitle",
             rightKey,
             legacyKey,
-            "barPlugins",
         ]);
         assert.equal(getEntryCatalogNode(`${TOP_BAR_ROOT_PATH}.${leftKey}`)?.label(),
             "Plugin One - Left Item");
@@ -398,7 +392,6 @@ test("dock catalog exposes the built-in default positions", () => {
         bookmark: "LeftBottom",
         tag: "LeftBottom",
         backlink: "RightBottom",
-        agentChat: "RightTop",
         inbox: "LeftTop",
         graph: "RightTop",
         globalGraph: "RightTop",

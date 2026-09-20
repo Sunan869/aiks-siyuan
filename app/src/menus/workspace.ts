@@ -35,8 +35,6 @@ import {isBrowser} from "../util/functions";
 import {openRecentDocs} from "../business/openRecentDocs";
 import * as dayjs from "dayjs";
 import {upDownHint} from "../util/upDownHint";
-import {openDataMigration} from "./dataMigration";
-import {openLink} from "../editor/openLink";
 import {adjustEditorFontSize} from "../util/editorFontSize";
 import {getHostCapabilities} from "../util/hostCapabilities";
 
@@ -600,30 +598,6 @@ export const workspaceMenu = (app: App, rect: DOMRect) => {
                     submenu
                 }).element);
             }
-            if (!window.siyuan.config.readonly) {
-                window.siyuan.menus.menu.append(new MenuItem({
-                    id: "riffCard",
-                    label: window.siyuan.languages.riffCard,
-                    type: "submenu",
-                    icon: "iconRiffCard",
-                    submenu: [{
-                        id: "spaceRepetition",
-                        iconHTML: "",
-                        label: window.siyuan.languages.spaceRepetition,
-                        accelerator: window.siyuan.config.keymap.general.riffCard.custom,
-                        click: () => {
-                            openCard(app);
-                        }
-                    }, {
-                        id: "manage",
-                        iconHTML: "",
-                        label: window.siyuan.languages.manage,
-                        click: () => {
-                            viewCards(app, "", window.siyuan.languages.all, "");
-                        }
-                    }],
-                }).element);
-            }
             window.siyuan.menus.menu.append(new MenuItem({
                 id: "recentDocs",
                 label: window.siyuan.languages.recentDocs,
@@ -651,39 +625,8 @@ export const workspaceMenu = (app: App, rect: DOMRect) => {
                     openHistory(app);
                 }
             }).element);
-            if (!window.siyuan.config.readonly && getHostCapabilities().importExport) {
-                window.siyuan.menus.menu.append(new MenuItem({
-                    id: "dataMigration",
-                    label: window.siyuan.languages.dataMigration,
-                    icon: "iconDatabaseBackup",
-                    click: () => {
-                        openDataMigration();
-                    }
-                }).element);
-            }
             window.siyuan.menus.menu.append(new MenuItem({id: "separator_2", type: "separator"}).element);
         }
-        window.siyuan.menus.menu.append(new MenuItem({
-            id: "userGuide",
-            label: window.siyuan.languages.userGuide,
-            icon: "iconHelp",
-            ignore: window.siyuan.config.readonly,
-            click: () => {
-                mountHelp();
-            }
-        }).element);
-        window.siyuan.menus.menu.append(new MenuItem({
-            id: "feedback",
-            label: window.siyuan.languages.feedback,
-            icon: "iconFeedback",
-            click: () => {
-                if ("zh-CN" === window.siyuan.config.lang) {
-                    openLink(app, "https://ld246.com/article/1649901726096");
-                } else {
-                    openLink(app, "https://liuyun.io/article/1686530886208");
-                }
-            }
-        }).element);
         /// #if !BROWSER
         window.siyuan.menus.menu.append(new MenuItem({
             id: "debug",

@@ -31,10 +31,8 @@ export const ensureOnboarding = async () => {
 };
 
 const shouldShowOnboarding = () => {
-    return window.siyuan.config.onboarding?.newUser &&
-        window.siyuan.config.onboarding.state === "completed" &&
-        window.siyuan.config.onboarding.documentID &&
-        !window.siyuan.config.onboarding.dismissed;
+    // 产品定制：不再展示新手引导弹窗（右下角 Welcome to SiYuan），也不自动打开引导文档
+    return false;
 };
 
 let pendingLoginHandler: (() => void) | undefined;

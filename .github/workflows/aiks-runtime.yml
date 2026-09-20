@@ -1,0 +1,228 @@
+name: AIKS Runtime Package
+
+on:
+  pull_request:
+    branches:
+      - aiks/v4.2
+    paths:
+      - ".github/workflows/aiks-runtime.yml"
+      - "app/**"
+      - "kernel/**"
+  push:
+    branches:
+      - aiks/v4.2
+    paths:
+      - ".github/workflows/aiks-runtime.yml"
+      - "app/**"
+      - "kernel/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aiks-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-runtime:
+    name: Windows x64 embedded runtime
+    runs-on: windows-latest
+    env:
+      SIYUAN_PROFILE: aiks-embedded
+      GO111MODULE: on
+      CGO_ENABLED: 1
+      GOOS: windows
+      GOARCH: amd64
+    steps:
+      - name: Checkout aiks-siyuan
+        uses: actions/checkout@v6
+
+      - name: Set up MinGW
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-lua
+            p7zip
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: kernel/go.mod
+          cache-dependency-path: kernel/go.sum
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Enable pinned pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.25.0 --activate
+          pnpm --version
+
+      - name: Install frontend dependencies
+        working-directory: app
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
+
+      - name: AIKS profile tests
+        working-directory: app
+        shell: pwsh
+        run: node --import tsx --test src/aiks/*.test.ts
+
+      - name: Typecheck embedded frontend
+        working-directory: app
+        shell: pwsh
+        run: pnpm run typecheck
+
+      - name: Build embedded frontend
+        working-directory: app
+        shell: pwsh
+        run: pnpm run build
+
+      - name: Install Windows version resource generator
+        working-directory: kernel
+        shell: pwsh
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          $goBin = (go env GOPATH).Trim()
+          & "$goBin\bin\goversioninfo.exe" -platform-specific=true -icon="resource\icon.ico" -manifest="resource\goversioninfo.exe.manifest"
+
+      - name: Build embedded kernel
+        working-directory: kernel
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "..\app\kernel" | Out-Null
+          go build -tags "fts5 sqlcipher" -o "..\app\kernel\SiYuan-Kernel.exe" -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Mode=prod" .
+          if (-not (Test-Path "..\app\kernel\SiYuan-Kernel.exe")) {
+            throw "SiYuan-Kernel.exe was not produced"
+          }
+
+      - name: Assemble AIKS runtime
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP "aiks-siyuan-runtime-windows-x64"
+          if (Test-Path $runtime) { Remove-Item $runtime -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $runtime | Out-Null
+
+          foreach ($dir in @("kernel", "stage", "appearance", "guide")) {
+            $source = Join-Path "app" $dir
+            if (-not (Test-Path $source)) { throw "Missing runtime directory: $source" }
+            Copy-Item $source -Destination (Join-Path $runtime $dir) -Recurse -Force
+          }
+
+          $forkCommit = if ("${{ github.event_name }}" -eq "pull_request") {
+            "${{ github.event.pull_request.head.sha }}"
+          } else {
+            "${{ github.sha }}"
+          }
+
+          $manifest = [ordered]@{
+            workbenchVersion = "4.2.0"
+            siyuanBaseVersion = "3.8.3"
+            upstreamCommit = "8641553a1f07374001902d3ce773285db1292b2d"
+            forkRepository = "Sunan869/aiks-siyuan"
+            forkCommit = $forkCommit
+            profile = "aiks-embedded"
+            platform = "windows-x64"
+            bridgeProtocol = 1
+          }
+          $manifest | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $runtime "aiks-runtime.json")
+
+          $kernel = Join-Path $runtime "kernel\SiYuan-Kernel.exe"
+          & $kernel --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "Kernel smoke test failed with exit code $LASTEXITCODE" }
+
+          $zip = Join-Path $env:RUNNER_TEMP "aiks-siyuan-runtime-windows-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $runtime "*") -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          "$hash  aiks-siyuan-runtime-windows-x64.zip" | Set-Content -Encoding ASCII "$zip.sha256"
+          Write-Host "Runtime SHA256: $hash"
+
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiks-siyuan-runtime-windows-x64
+          path: |
+            ${{ runner.temp }}/aiks-siyuan-runtime-windows-x64.zip
+            ${{ runner.temp }}/aiks-siyuan-runtime-windows-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish immutable runtime release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/aiks/v4.2'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $shortSha = "${{ github.sha }}".Substring(0, 12)
+          $tag = "aiks-runtime-v4.2.0-$shortSha"
+          $repo = "${{ github.repository }}"
+          $assetName = "aiks-siyuan-runtime-windows-x64.zip"
+          $zip = Join-Path $env:RUNNER_TEMP $assetName
+          $sidecar = "$zip.sha256"
+          $title = "AIKS SiYuan Runtime 4.2.0 ($shortSha)"
+          $notes = @"
+          AIKS embedded SiYuan runtime.
+
+          - Workbench: 4.2.0
+          - SiYuan base: 3.8.3
+          - Upstream commit: 8641553a1f07374001902d3ce773285db1292b2d
+          - Fork commit: ${{ github.sha }}
+          - Profile: aiks-embedded
+          - Platform: windows-x64
+          - Bridge protocol: 1
+          "@
+
+          $previousPreference = $ErrorActionPreference
+          $ErrorActionPreference = "Continue"
+          & gh release view $tag --repo $repo *> $null
+          $releaseExists = ($LASTEXITCODE -eq 0)
+          $ErrorActionPreference = $previousPreference
+
+          if ($releaseExists) {
+            $targetCommit = (& gh release view $tag --repo $repo --json targetCommitish --jq '.targetCommitish').Trim()
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to inspect existing runtime release $tag"
+            }
+            if ($targetCommit -ne "${{ github.sha }}") {
+              throw "Existing runtime release target mismatch for ${tag}: expected ${{ github.sha }}, got $targetCommit"
+            }
+
+            $existingDir = Join-Path $env:RUNNER_TEMP "existing-runtime-release-$shortSha"
+            if (Test-Path $existingDir) { Remove-Item $existingDir -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $existingDir | Out-Null
+            & gh release download $tag --repo $repo --pattern "$assetName*" --dir $existingDir
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to download existing runtime release $tag for verification"
+            }
+
+            $publishedZip = Join-Path $existingDir $assetName
+            $publishedSidecar = "$publishedZip.sha256"
+            if (-not (Test-Path $publishedZip) -or -not (Test-Path $publishedSidecar)) {
+              throw "Existing runtime release is incomplete: $tag"
+            }
+
+            $publishedHash = (Get-FileHash -Algorithm SHA256 $publishedZip).Hash.ToLowerInvariant()
+            $declaredHashLine = (Get-Content -LiteralPath $publishedSidecar -Raw).Trim()
+            $declaredHash = ($declaredHashLine -split '\s+')[0].ToLowerInvariant()
+            if ($publishedHash -ne $declaredHash) {
+              throw "Existing runtime release hash mismatch for ${tag}: archive=$publishedHash sidecar=$declaredHash"
+            }
+
+            Write-Host "Immutable runtime release already exists and passed verification: $tag"
+          } else {
+            & gh release create $tag $zip $sidecar --repo $repo --target "${{ github.sha }}" --title $title --notes $notes
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to publish runtime release $tag"
+            }
+            Write-Host "Published immutable runtime release: $tag"
+          }

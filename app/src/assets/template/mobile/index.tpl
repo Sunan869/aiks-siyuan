@@ -9,7 +9,7 @@
 <body class="fn__flex-column">
 <div id="loading" class="b3-dialog b3-dialog--open">
     <div class="b3-dialog__scrim" style="background-color: #1e1e1e"></div>
-    <img style="position: absolute;width: 24vh;" src="../../icon.svg">
+    <div style="position: absolute;font-size: 6vh;font-weight: 300;letter-spacing: .2em;color: #fff;">AIKS</div>
 </div>
 <div class="mobile-safe-area"></div>
 <div id="mobileTopBar" class="toolbar toolbar--border mobile-topbar">

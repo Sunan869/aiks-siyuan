@@ -785,12 +785,6 @@ export abstract class Constants {
             pin: true,
             data: [
                 [{
-                    type: "agentChat",
-                    size: {width: 320, height: 0},
-                    show: false,
-                    icon: "iconSparkles",
-                    hotkeyLangId: "agentChat",
-                }, {
                     type: "graph",
                     size: {width: 320, height: 0},
                     show: false,

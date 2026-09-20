@@ -58,6 +58,7 @@ import {ensureUILayout} from "./util/ensureUILayout";
 import {applyEntryVisibility} from "./config/entryVisibility/runtime";
 import {removeBlockPanelEditors} from "./block/panelRemoval";
 import {initializeEnglishCommandTranslations} from "./command/english";
+import {isAiksEmbedded} from "./aiks/profile";
 
 export class App {
     public plugins: import("./plugin").Plugin[] = [];
@@ -328,7 +329,7 @@ export class App {
                         setTitle("", true);
                         initMessage();
                         /// #if BROWSER && !MOBILE
-                        if (!isInMobileApp() && !isIOSDevice() && !window.siyuan.config.readonly &&
+                        if (!isAiksEmbedded() && !isInMobileApp() && !isIOSDevice() && !window.siyuan.config.readonly &&
                             !window.siyuan.isPublish && !isChromeBrowser()
                             && window.siyuan.config.appearance.notifications?.browserCompatibility !== false) {
                             showMessage(window.siyuan.languages.useChrome, 0, "error");

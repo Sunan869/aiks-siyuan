@@ -30,7 +30,6 @@ import type {App} from "../index";
 import {afterLayoutReady} from "../plugin/loader";
 import {newCenterEmptyTab, resizeTabs, setTabPosition} from "./tabUtil";
 import {
-    isDisabledFeature,
     isSensitiveLayoutData,
     isSensitiveSearchConfig,
     setStorageVal,
@@ -258,63 +257,12 @@ export const getAllLayout = () => {
     return layoutJSON;
 };
 
-const DOCK_KEYS = ["left", "right", "bottom"] as const;
-
-// agentChat 停靠按钮：已存在则去重，不存在则按默认布局补全
-const ensureAgentChatDock = (layout: Pick<Config.IUiLayout, "left" | "right" | "bottom">) => {
-    let hasAgentChat = false;
-    for (const key of DOCK_KEYS) {
-        const sections = layout[key]?.data;
-        if (!sections) {
-            continue;
-        }
-        for (const sub of sections) {
-            if (!sub) {
-                continue;
-            }
-            for (let i = 0; i < sub.length; i++) {
-                if (sub[i]?.type !== "agentChat") {
-                    continue;
-                }
-                if (hasAgentChat) {
-                    sub.splice(i, 1);
-                    i--;
-                } else {
-                    hasAgentChat = true;
-                }
-            }
-        }
-    }
-    if (!hasAgentChat) {
-        for (const key of DOCK_KEYS) {
-            const sections = Constants.SIYUAN_EMPTY_LAYOUT[key]?.data;
-            if (!sections) {
-                continue;
-            }
-            for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-                const sub = sections[sectionIndex];
-                if (!sub) {
-                    continue;
-                }
-                for (let itemIndex = 0; itemIndex < sub.length; itemIndex++) {
-                    const item = sub[itemIndex];
-                    if (item?.type === "agentChat") {
-                        const targetSections = layout[key]?.data;
-                        if (targetSections?.[sectionIndex]) {
-                            targetSections[sectionIndex].splice(itemIndex, 0, {...item});
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-    }
-};
+// 产品定制：agentChat（AI 助手）停靠入口已从界面移除，不再自动补全
 
 const initInternalDock = (dockItem: Config.IUILayoutDockTab[]) => {
     dockItem.forEach((existSubItem, index) => {
-        if ((window.siyuan.isPublish && (existSubItem.type === "inbox" || existSubItem.type === "agentChat")) ||
-            (isDisabledFeature("ai") && existSubItem.type === "agentChat")) {
+        if (existSubItem.type === "agentChat" ||
+            (window.siyuan.isPublish && existSubItem.type === "inbox")) {
             dockItem.splice(index, 1);
             return;
         }
@@ -325,7 +273,6 @@ const initInternalDock = (dockItem: Config.IUILayoutDockTab[]) => {
 };
 
 const JSONToDock = (json: any, app: App) => {
-    ensureAgentChatDock(json);
     json.left.data.forEach((existItem: Config.IUILayoutDockTab[]) => {
         initInternalDock(existItem);
     });

@@ -61,46 +61,8 @@ var errUpdatePackageUnavailable = errors.New("update package is unavailable")
 func checkDownloadInstallPkg(notifyPackageUnavailable bool) {
 	defer logging.Recover()
 
-	if skipNewVerInstallPkg() {
-		return
-	}
-
-	if !checkDownloadInstallPkgLock.TryLock() {
-		return
-	}
-	defer checkDownloadInstallPkgLock.Unlock()
-
-	downloadPkgURLs, checksum, err := getUpdatePkg()
-	if err != nil {
-		if notifyPackageUnavailable && errors.Is(err, errUpdatePackageUnavailable) {
-			if release, releaseErr := getUpdateRelease(false); nil == releaseErr && !isVersionUpToDate(release.Version) {
-				pushNewVersionNotification(release)
-			}
-		}
-		return
-	}
-
-	existingPkgPath := getNewVerInstallPkgPath()
-	if "" != existingPkgPath {
-		// 存在经过 sha256Hash 检查的安装包
-		util.PushUpdateMsg("update-pkg-ready", Conf.Language(62), 15*1000)
-		return
-	}
-
-	util.PushUpdateMsg("update-pkg-downloading", Conf.Language(103), 1000*7)
-	success := false
-	for _, downloadPkgURL := range downloadPkgURLs {
-		err = downloadInstallPkg(downloadPkgURL, checksum)
-		if err == nil {
-			success = true
-			break
-		}
-	}
-	if success {
-		util.PushUpdateMsg("update-pkg-ready", Conf.Language(62), 15*1000)
-	} else {
-		util.PushUpdateMsg("update-pkg-downloading", Conf.Language(104), 7000)
-	}
+	// 产品定制：固定当前版本，禁用新版本安装包的自动检查与下载
+	return
 }
 
 func getUpdatePkg() (downloadPkgURLs []string, checksum string, err error) {
@@ -230,28 +192,8 @@ func getAnnouncements() (ret []*Announcement) {
 }
 
 func CheckUpdate(showMsg bool) {
-	if !showMsg {
-		return
-	}
-
-	if Conf.System.IsMicrosoftStore {
-		return
-	}
-
-	release, err := getUpdateRelease(showMsg)
-	if err != nil {
-		return
-	}
-
-	if isVersionUpToDate(release.Version) {
-		util.PushUpdateMsg("update-notify", Conf.Language(10), 3000)
-	} else {
-		pushNewVersionNotification(release)
-	}
-	go func() {
-		defer logging.Recover()
-		checkDownloadInstallPkg(false)
-	}()
+	// 产品定制：固定当前版本，禁用自动检查更新与升级提醒（同时使定时任务与帮助文档触发路径失效）
+	return
 }
 
 func pushNewVersionNotification(release *updateRelease) {

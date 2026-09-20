@@ -570,9 +570,6 @@ export const applyCloudUserState = (user: TCloudUser | null, userName = "", acco
     processSync();
 };
 
-const genVIPIconHTML = (className = "") =>
-    `<svg${className ? ` class="${className}"` : ""}><use xlink:href="#iconVIP"></use></svg>`;
-
 const genToolbarItemHTML = (ariaLabel: string, svg: string) =>
     `<div class="toolbar__item ariaLabel" aria-label="${ariaLabel}">${svg}</div>`;
 
@@ -587,40 +584,7 @@ const setToolbarItems = (element: HTMLElement, parts: string[]) => {
 
 export const onSetaccount = () => {
     /// #if !MOBILE
-    const toolbarVIPEl = document.getElementById("toolbarVIP");
-    if (toolbarVIPEl) {
-        const parts: string[] = [];
-        if (!window.siyuan.user) {
-            // 未登录
-            parts.push(genToolbarItemHTML(window.siyuan.languages.freeSub, genVIPIconHTML("ft__error")));
-        } else {
-            const isOneTimePay = window.siyuan.user.userSiYuanOneTimePayStatus === 1;
-            if (window.siyuan.user.userSiYuanProExpireTime === -1) {
-                // 终身会员
-                parts.push(genToolbarItemHTML(window.siyuan.languages.account12, Constants.SIYUAN_IMAGE_VIP));
-            } else if (window.siyuan.user.userSiYuanProExpireTime > 0) {
-                // 订阅有效（未过期）
-                if (window.siyuan.user.userSiYuanSubscriptionPlan === 2) {
-                    // 试用订阅
-                    parts.push(genToolbarItemHTML(window.siyuan.languages.account3, genVIPIconHTML()));
-                } else {
-                    // 付费订阅
-                    parts.push(genToolbarItemHTML(window.siyuan.languages.account10, genVIPIconHTML("ft__secondary")));
-                }
-            } else if (window.siyuan.user.userSiYuanSubscriptionStatus === 2 && !isOneTimePay) {
-                // 订阅过期
-                parts.push(genToolbarItemHTML(window.siyuan.languages.accountSubscriptionExpired, genVIPIconHTML("ft__error")));
-            } else if (window.siyuan.user.userSiYuanSubscriptionStatus === -1 && !isOneTimePay) {
-                // 未订阅过
-                parts.push(genToolbarItemHTML(window.siyuan.languages.freeSub, genVIPIconHTML("ft__error")));
-            }
-            if (isOneTimePay) {
-                // 功能特性已付费
-                parts.push(genToolbarItemHTML(window.siyuan.languages.onepay, genVIPIconHTML("ft__success")));
-            }
-        }
-        setToolbarItems(toolbarVIPEl, parts);
-    }
+    // 产品定制：顶栏不再展示订阅/会员（toolbarVIP）入口
 
     const toolbarTitleEl = document.getElementById("toolbarTitle");
     if (toolbarTitleEl) {
