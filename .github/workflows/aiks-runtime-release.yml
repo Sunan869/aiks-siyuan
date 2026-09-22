@@ -26,6 +26,7 @@ jobs:
       workbench_version: ${{ steps.meta.outputs.workbench_version }}
       siyuan_base_version: ${{ steps.meta.outputs.siyuan_base_version }}
       upstream_commit: ${{ steps.meta.outputs.upstream_commit }}
+      fork_commit: ${{ steps.meta.outputs.fork_commit }}
       profile: ${{ steps.meta.outputs.profile }}
       bridge_protocol: ${{ steps.meta.outputs.bridge_protocol }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
@@ -41,16 +42,20 @@ jobs:
             [[ -z "$key" || "$key" == \#* ]] && continue
             echo "$key=$value" >> "$GITHUB_OUTPUT"
           done < aiks-runtime.version
-          short_sha="${GITHUB_SHA:0:12}"
+          fork_commit="$(grep '^fork_commit=' aiks-runtime.version | cut -d= -f2-)"
+          short_sha="${fork_commit:0:12}"
           workbench_version="$(grep '^workbench_version=' aiks-runtime.version | cut -d= -f2-)"
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "release_tag=aiks-runtime-v${workbench_version}-${short_sha}" >> "$GITHUB_OUTPUT"
 
   web-assets:
     name: Shared SiYuan web assets
+    needs: metadata
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.fork_commit }}
 
       - uses: actions/setup-node@v4
         with:
@@ -116,6 +121,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.fork_commit }}
 
       - uses: actions/setup-go@v5
         with:
@@ -208,7 +215,7 @@ jobs:
           UPSTREAM_COMMIT: ${{ needs.metadata.outputs.upstream_commit }}
           PROFILE: ${{ needs.metadata.outputs.profile }}
           BRIDGE_PROTOCOL: ${{ needs.metadata.outputs.bridge_protocol }}
-          FORK_COMMIT: ${{ github.sha }}
+          FORK_COMMIT: ${{ needs.metadata.outputs.fork_commit }}
         run: |
           import json, os
           from pathlib import Path
@@ -289,11 +296,11 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$TAG"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "AIKS SiYuan Runtime ${WORKBENCH_VERSION} (${GITHUB_SHA:0:12})"               --notes "AIKS embedded SiYuan runtime.
+            gh release create "$TAG"               --repo "$GITHUB_REPOSITORY"               --target "${{ needs.metadata.outputs.fork_commit }}"               --title "AIKS SiYuan Runtime ${WORKBENCH_VERSION} (${{ needs.metadata.outputs.short_sha }})"               --notes "AIKS embedded SiYuan runtime.
 
           - Workbench: ${WORKBENCH_VERSION}
           - SiYuan base: ${SIYUAN_BASE_VERSION}
-          - Fork commit: ${GITHUB_SHA}
+          - Fork commit: ${{ needs.metadata.outputs.fork_commit }}
           - Profile: ${PROFILE}
           - Bridge protocol: ${BRIDGE_PROTOCOL}
           - Platforms: Windows x64, macOS x64/arm64, Linux x64/arm64"
