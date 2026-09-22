@@ -130,6 +130,12 @@ jobs:
           update: true
           install: mingw-w64-x86_64-gcc
 
+      - name: Locate Windows MinGW compiler
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          echo "MINGW_CC=$(cygpath -w "$(command -v gcc)")" >> "$GITHUB_ENV"
+
       - name: Install Linux compiler
         if: runner.os == 'Linux'
         shell: bash
@@ -163,7 +169,8 @@ jobs:
           $env:CGO_ENABLED = "1"
           $env:GOOS = "windows"
           $env:GOARCH = "amd64"
-          $env:CC = "C:\\msys64\\mingw64\\bin\\gcc.exe"
+          if (-not $env:MINGW_CC) { throw "MinGW compiler path was not exported" }
+          $env:CC = $env:MINGW_CC
           go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel.exe" -ldflags "-s -w" .
 
       - name: Build macOS kernel
