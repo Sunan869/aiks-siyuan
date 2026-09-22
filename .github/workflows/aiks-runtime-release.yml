@@ -1,0 +1,293 @@
+name: AIKS SiYuan Runtime Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - "aiks-runtime.version"
+      - "app/**"
+      - "kernel/**"
+      - ".github/workflows/aiks-runtime-release.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aiks-runtime-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    name: Runtime metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      workbench_version: ${{ steps.meta.outputs.workbench_version }}
+      siyuan_base_version: ${{ steps.meta.outputs.siyuan_base_version }}
+      upstream_commit: ${{ steps.meta.outputs.upstream_commit }}
+      profile: ${{ steps.meta.outputs.profile }}
+      bridge_protocol: ${{ steps.meta.outputs.bridge_protocol }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS='=' read -r key value; do
+            [[ -z "$key" || "$key" == \#* ]] && continue
+            echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done < aiks-runtime.version
+          short_sha="${GITHUB_SHA:0:12}"
+          workbench_version="$(grep '^workbench_version=' aiks-runtime.version | cut -d= -f2-)"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "release_tag=aiks-runtime-v${workbench_version}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+  web-assets:
+    name: Shared SiYuan web assets
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.25.0 --activate
+
+      - name: Build SiYuan web assets
+        working-directory: app
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Pack shared stage
+        shell: bash
+        run: python3 -c "import shutil; shutil.make_archive('stage','zip','app/stage')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: siyuan-stage
+          path: stage.zip
+          if-no-files-found: error
+
+  runtime:
+    name: Runtime ${{ matrix.platform }}
+    needs:
+      - metadata
+      - web-assets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+            kernel: SiYuan-Kernel.exe
+          - platform: macos-x64
+            runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+            kernel: SiYuan-Kernel
+          - platform: macos-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+            kernel: SiYuan-Kernel
+          - platform: linux-x64
+            runner: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+            kernel: SiYuan-Kernel
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+            kernel: SiYuan-Kernel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.5"
+          cache-dependency-path: kernel/go.sum
+
+      - name: Set up MinGW
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+
+      - name: Install Linux compiler
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential musl-tools
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: siyuan-stage
+          path: .runtime-web
+
+      - name: Prepare shared runtime resources
+        shell: python
+        run: |
+          import shutil
+          from pathlib import Path
+          root = Path("runtime")
+          root.mkdir(exist_ok=True)
+          shutil.unpack_archive(".runtime-web/stage.zip", root / "stage")
+          shutil.copytree("app/appearance", root / "appearance", dirs_exist_ok=True)
+          shutil.copytree("app/guide", root / "guide", dirs_exist_ok=True)
+          (root / "kernel").mkdir(exist_ok=True)
+
+      - name: Build Windows kernel
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        working-directory: kernel
+        run: |
+          export GO111MODULE=on
+          export CGO_ENABLED=1
+          export GOOS=windows
+          export GOARCH=amd64
+          go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel.exe" -ldflags "-s -w" .
+
+      - name: Build macOS kernel
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: kernel
+        run: |
+          export GO111MODULE=on
+          export CGO_ENABLED=1
+          export GOOS=${{ matrix.goos }}
+          export GOARCH=${{ matrix.goarch }}
+          go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel" -ldflags "-s -w" .
+          chmod +x ../runtime/kernel/SiYuan-Kernel
+          codesign --force --sign - ../runtime/kernel/SiYuan-Kernel
+
+      - name: Build Linux kernel
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: kernel
+        run: |
+          export GO111MODULE=on
+          export CGO_ENABLED=1
+          export GOOS=linux
+          export GOARCH=${{ matrix.goarch }}
+          export CC=musl-gcc
+          go build -buildmode=pie -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel" -ldflags "-s -w -extldflags -static-pie" .
+          chmod +x ../runtime/kernel/SiYuan-Kernel
+
+      - name: Write runtime manifest
+        shell: python
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          WORKBENCH_VERSION: ${{ needs.metadata.outputs.workbench_version }}
+          SIYUAN_BASE_VERSION: ${{ needs.metadata.outputs.siyuan_base_version }}
+          UPSTREAM_COMMIT: ${{ needs.metadata.outputs.upstream_commit }}
+          PROFILE: ${{ needs.metadata.outputs.profile }}
+          BRIDGE_PROTOCOL: ${{ needs.metadata.outputs.bridge_protocol }}
+          FORK_COMMIT: ${{ github.sha }}
+        run: |
+          import json, os
+          from pathlib import Path
+          manifest = {
+              "workbenchVersion": os.environ["WORKBENCH_VERSION"],
+              "siyuanBaseVersion": os.environ["SIYUAN_BASE_VERSION"],
+              "upstreamCommit": os.environ["UPSTREAM_COMMIT"],
+              "forkRepository": "Sunan869/aiks-siyuan",
+              "forkCommit": os.environ["FORK_COMMIT"],
+              "profile": os.environ["PROFILE"],
+              "platform": os.environ["PLATFORM"],
+              "bridgeProtocol": int(os.environ["BRIDGE_PROTOCOL"]),
+          }
+          Path("runtime/aiks-runtime.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          shutil = __import__("shutil")
+          shutil.copy2("LICENSE", "runtime/LICENSE-SIYUAN.txt")
+
+      - name: Smoke test Windows kernel
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\runtime\kernel\SiYuan-Kernel.exe serve --help
+          if ($LASTEXITCODE -ne 0) { throw "SiYuan kernel smoke test failed" }
+
+      - name: Smoke test Unix kernel
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ./runtime/kernel/SiYuan-Kernel serve --help >/dev/null
+
+      - name: Package runtime ZIP
+        shell: python
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          import hashlib, os, shutil
+          from pathlib import Path
+          out = Path("release-assets")
+          out.mkdir(exist_ok=True)
+          base = out / f"aiks-siyuan-runtime-{os.environ['PLATFORM']}"
+          archive = Path(shutil.make_archive(str(base), "zip", "runtime"))
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          Path(str(archive) + ".sha256").write_text(
+              f"{digest}  {archive.name}\n",
+              encoding="ascii",
+          )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  release:
+    name: Publish runtime release
+    needs:
+      - metadata
+      - runtime
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runtime-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.metadata.outputs.release_tag }}
+          WORKBENCH_VERSION: ${{ needs.metadata.outputs.workbench_version }}
+          SIYUAN_BASE_VERSION: ${{ needs.metadata.outputs.siyuan_base_version }}
+          PROFILE: ${{ needs.metadata.outputs.profile }}
+          BRIDGE_PROTOCOL: ${{ needs.metadata.outputs.bridge_protocol }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "AIKS SiYuan Runtime ${WORKBENCH_VERSION} (${GITHUB_SHA:0:12})"               --notes "AIKS embedded SiYuan runtime.
+
+          - Workbench: ${WORKBENCH_VERSION}
+          - SiYuan base: ${SIYUAN_BASE_VERSION}
+          - Fork commit: ${GITHUB_SHA}
+          - Profile: ${PROFILE}
+          - Bridge protocol: ${BRIDGE_PROTOCOL}
+          - Platforms: Windows x64, macOS x64/arm64, Linux x64/arm64"
+          fi
+          gh release upload "$TAG" release-assets/*             --repo "$GITHUB_REPOSITORY"             --clobber
