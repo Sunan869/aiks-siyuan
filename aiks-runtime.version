@@ -1,0 +1,5 @@
+workbench_version=4.2.0
+siyuan_base_version=3.8.3
+upstream_commit=8641553a1f07374001902d3ce773285db1292b2d
+profile=aiks-embedded
+bridge_protocol=1
