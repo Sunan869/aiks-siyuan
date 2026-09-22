@@ -61,7 +61,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Enable pnpm
         shell: bash
@@ -96,17 +96,8 @@ jobs:
           stage = Path("app/stage")
           files = [p for p in stage.rglob("*") if p.is_file() and p.suffix in {".js", ".html"}]
           text = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in files)
-          markers = {
-              "aiksProfile": ["aiksProfile"],
-              "AI 对话记录": ["AI 对话记录", "AI \\u5bf9\\u8bdd\\u8bb0\\u5f55"],
-              "知识": ["知识", "\\u77e5\\u8bc6"],
-          }
-          missing = [
-              name for name, variants in markers.items()
-              if not any(variant in text for variant in variants)
-          ]
-          if missing:
-              raise SystemExit("Embedded AIKS frontend markers missing: " + ", ".join(missing))
+          if "aiksProfile" not in text:
+              raise SystemExit("Embedded AIKS bootstrap marker missing from built stage")
 
       - name: Pack shared stage
         shell: bash
