@@ -52,6 +52,8 @@ jobs:
     name: Shared SiYuan web assets
     needs: metadata
     runs-on: ubuntu-24.04
+    env:
+      SIYUAN_PROFILE: aiks-embedded
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,12 +69,37 @@ jobs:
           corepack enable
           corepack prepare pnpm@11.25.0 --activate
 
+      - name: Install frontend dependencies
+        working-directory: app
+        shell: bash
+        run: pnpm install --frozen-lockfile
+
+      - name: AIKS embedded profile tests
+        working-directory: app
+        shell: bash
+        run: node --import tsx --test src/aiks/*.test.ts
+
+      - name: Typecheck embedded frontend
+        working-directory: app
+        shell: bash
+        run: pnpm run typecheck
+
       - name: Build SiYuan web assets
         working-directory: app
         shell: bash
+        run: pnpm run build
+
+      - name: Verify embedded frontend markers
+        shell: python
         run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
+          from pathlib import Path
+          stage = Path("app/stage")
+          files = [p for p in stage.rglob("*") if p.is_file() and p.suffix in {".js", ".html"}]
+          text = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in files)
+          required = ["AI 对话记录", "知识", "aiksProfile"]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit("Embedded AIKS frontend markers missing: " + ", ".join(missing))
 
       - name: Pack shared stage
         shell: bash
@@ -178,7 +205,7 @@ jobs:
           $env:GOARCH = "amd64"
           if (-not $env:MINGW_CC) { throw "MinGW compiler path was not exported" }
           $env:CC = $env:MINGW_CC
-          go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel.exe" -ldflags "-s -w" .
+          go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel.exe" -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Mode=prod" .
 
       - name: Build macOS kernel
         if: runner.os == 'macOS'
@@ -189,7 +216,7 @@ jobs:
           export CGO_ENABLED=1
           export GOOS=${{ matrix.goos }}
           export GOARCH=${{ matrix.goarch }}
-          go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel" -ldflags "-s -w" .
+          go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel" -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Mode=prod" .
           chmod +x ../runtime/kernel/SiYuan-Kernel
           codesign --force --sign - ../runtime/kernel/SiYuan-Kernel
 
@@ -203,7 +230,7 @@ jobs:
           export GOOS=linux
           export GOARCH=${{ matrix.goarch }}
           export CC=musl-gcc
-          go build -buildmode=pie -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel" -ldflags "-s -w -extldflags -static-pie" .
+          go build -buildmode=pie -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel" -ldflags "-s -w -extldflags -static-pie -X github.com/siyuan-note/siyuan/kernel/util.Mode=prod" .
           chmod +x ../runtime/kernel/SiYuan-Kernel
 
       - name: Write runtime manifest
