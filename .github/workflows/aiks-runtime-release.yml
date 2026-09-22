@@ -156,13 +156,14 @@ jobs:
 
       - name: Build Windows kernel
         if: runner.os == 'Windows'
-        shell: msys2 {0}
+        shell: pwsh
         working-directory: kernel
         run: |
-          export GO111MODULE=on
-          export CGO_ENABLED=1
-          export GOOS=windows
-          export GOARCH=amd64
+          $env:GO111MODULE = "on"
+          $env:CGO_ENABLED = "1"
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          $env:CC = "C:\\msys64\\mingw64\\bin\\gcc.exe"
           go build -tags "fts5 sqlcipher" -o "../runtime/kernel/SiYuan-Kernel.exe" -ldflags "-s -w" .
 
       - name: Build macOS kernel
