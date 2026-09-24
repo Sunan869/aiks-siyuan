@@ -85,8 +85,21 @@ func TestFilterAIKSReadableDocumentsAllowsTrustedLoopbackServiceContext(t *testi
 	t.Setenv(aiks.TeamAuthEnabledEnv, "true")
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/test", nil)
+	c.Request.RemoteAddr = "127.0.0.1:1234"
+	c.Set(model.RoleContextKey, model.RoleAdministrator)
 	allowed, err := filterAIKSReadableDocuments(c, []string{"20260924180000-service1"})
 	if err != nil || !allowed["20260924180000-service1"] {
 		t.Fatalf("trusted service context rejected: allowed=%v err=%v", allowed, err)
+	}
+}
+
+func TestFilterAIKSReadableDocumentsRejectsMissingPrincipalFromBrowser(t *testing.T) {
+	t.Setenv(aiks.TeamAuthEnabledEnv, "true")
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/test", nil)
+	c.Request.RemoteAddr = "192.0.2.10:1234"
+	c.Set(model.RoleContextKey, model.RoleAdministrator)
+	if _, err := filterAIKSReadableDocuments(c, []string{"20260924180000-private1"}); err == nil {
+		t.Fatal("missing browser principal was accepted")
 	}
 }

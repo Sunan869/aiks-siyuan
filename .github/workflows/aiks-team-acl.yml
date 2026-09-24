@@ -38,6 +38,7 @@ jobs:
             api/aiks_auth_test.go
             api/aiks_acl.go
             api/aiks_acl_test.go
+            api/block.go
             api/filetree.go
             api/search.go
             model/session.go

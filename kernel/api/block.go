@@ -1172,6 +1172,18 @@ func getDocBlocksOrders(c *gin.Context) {
 		return
 	}
 
+	readable, authErr := isAIKSBlockReadable(c, id, "")
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Code = -1
+		ret.Msg = fmt.Sprintf(model.Conf.Language(15), id)
+		return
+	}
+
 	orders, err := model.GetDocBlocksOrders(id)
 	if err != nil {
 		ret.Code = -1
@@ -1202,6 +1214,17 @@ func getBlockInfo(c *gin.Context) {
 		return
 	}
 	blockTree, publishAccessRequired, publishMetadataVisible, publishAccessible := getBlockInfoPublishAccess(c, id, boxID)
+	readable, authErr := isAIKSBlockReadable(c, id, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Code = -1
+		ret.Msg = fmt.Sprintf(model.Conf.Language(15), id)
+		return
+	}
 	if !publishAccessible {
 		ret.Code = -1
 		ret.Msg = fmt.Sprintf(model.Conf.Language(15), id)
@@ -1379,6 +1402,16 @@ func getBlockDOM(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
+	readable, authErr := isAIKSBlockReadable(c, id, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Data = map[string]string{"id": id, "dom": ""}
+		return
+	}
 	dom := model.GetBlockDOMInBox(id, boxID)
 
 	if model.IsReadOnlyRoleContext(c) {
@@ -1421,6 +1454,16 @@ func getOrderedListContinueStart(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
+	readable, authErr := isAIKSBlockReadable(c, id, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Data = map[string]any{"start": 0, "found": false}
+		return
+	}
 	start, found := model.GetOrderedListContinueStartInBox(id, boxID)
 	ret.Data = map[string]any{
 		"start": start,
@@ -1452,12 +1495,18 @@ func getBlockDOMs(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
-	doms := model.GetBlockDOMsInBox(ids, boxID)
+	visibleIDs, authErr := filterAIKSReadableBlockIDs(c, ids, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	doms := model.GetBlockDOMsInBox(visibleIDs, boxID)
 
 	if model.IsReadOnlyRoleContext(c) {
 		publishAccess := model.GetPublishAccess()
 		publishIgnore := model.GetDisablePublishAccess(publishAccess)
-		filterBlockDOMsByPublishAccess(c, doms, ids, boxID, publishAccess, publishIgnore)
+		filterBlockDOMsByPublishAccess(c, doms, visibleIDs, boxID, publishAccess, publishIgnore)
 	}
 
 	ret.Data = doms
@@ -1482,13 +1531,27 @@ func getBlockDOMWithEmbed(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
+	readable, authErr := isAIKSBlockReadable(c, id, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Data = map[string]string{"id": id, "dom": ""}
+		return
+	}
 	isReadOnlyRole := model.IsReadOnlyRoleContext(c)
 	var publishAccess model.PublishAccess
 	var accessChecker model.EmbedBlockAccessChecker
 	if isReadOnlyRole {
 		publishAccess = model.GetPublishAccess()
 		accessChecker = func(blockID string) bool {
-			return model.CheckBlockIdAccessableByPublishAccessInBox(c, publishAccess, blockID, boxID)
+			if !model.CheckBlockIdAccessableByPublishAccessInBox(c, publishAccess, blockID, boxID) {
+				return false
+			}
+			allowed, err := isAIKSBlockReadable(c, blockID, boxID)
+			return err == nil && allowed
 		}
 	}
 	dom := model.GetBlockDOMWithEmbedInBoxWithAccessChecker(id, boxID, accessChecker)
@@ -1536,20 +1599,30 @@ func getBlockDOMsWithEmbed(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
+	visibleIDs, authErr := filterAIKSReadableBlockIDs(c, ids, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
 	isReadOnlyRole := model.IsReadOnlyRoleContext(c)
 	var publishAccess model.PublishAccess
 	var accessChecker model.EmbedBlockAccessChecker
 	if isReadOnlyRole {
 		publishAccess = model.GetPublishAccess()
 		accessChecker = func(blockID string) bool {
-			return model.CheckBlockIdAccessableByPublishAccessInBox(c, publishAccess, blockID, boxID)
+			if !model.CheckBlockIdAccessableByPublishAccessInBox(c, publishAccess, blockID, boxID) {
+				return false
+			}
+			allowed, err := isAIKSBlockReadable(c, blockID, boxID)
+			return err == nil && allowed
 		}
 	}
-	doms := model.GetBlockDOMsWithEmbedInBoxWithAccessChecker(ids, boxID, accessChecker)
+	doms := model.GetBlockDOMsWithEmbedInBoxWithAccessChecker(visibleIDs, boxID, accessChecker)
 
 	if isReadOnlyRole {
 		publishIgnore := model.GetDisablePublishAccess(publishAccess)
-		filterBlockDOMsByPublishAccess(c, doms, ids, boxID, publishAccess, publishIgnore)
+		filterBlockDOMsByPublishAccess(c, doms, visibleIDs, boxID, publishAccess, publishIgnore)
 	}
 
 	ret.Data = doms
@@ -1642,6 +1715,16 @@ func getBlockKramdown(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
+	readable, authErr := isAIKSBlockReadable(c, id, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Data = map[string]string{"id": id, "kramdown": ""}
+		return
+	}
 	var kramdown string
 	if boxID != "" {
 		kramdown = model.GetBlockKramdownInBox(id, mode, boxID)
@@ -1710,17 +1793,23 @@ func getBlockKramdowns(c *gin.Context) {
 	if !holdBlockRequest(c, ret, boxID, arg) {
 		return
 	}
+	visibleIDs, authErr := filterAIKSReadableBlockIDs(c, ids, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
 	var kramdowns map[string]string
 	if boxID != "" {
-		kramdowns = model.GetBlockKramdownsInBox(ids, mode, boxID)
+		kramdowns = model.GetBlockKramdownsInBox(visibleIDs, mode, boxID)
 	} else {
-		kramdowns = model.GetBlockKramdowns(ids, mode)
+		kramdowns = model.GetBlockKramdowns(visibleIDs, mode)
 	}
 
 	if model.IsReadOnlyRoleContext(c) {
 		publishAccess := model.GetPublishAccess()
 		publishIgnore := model.GetDisablePublishAccess(publishAccess)
-		filterBlockKramdownsByPublishAccess(c, kramdowns, ids, boxID, publishAccess, publishIgnore)
+		filterBlockKramdownsByPublishAccess(c, kramdowns, visibleIDs, boxID, publishAccess, publishIgnore)
 	}
 
 	ret.Data = kramdowns
@@ -1759,6 +1848,16 @@ func getChildBlocks(c *gin.Context) {
 
 	boxID := encryptedNotebookFromArg(arg)
 	if !holdBlockRequest(c, ret, boxID, arg) {
+		return
+	}
+	readable, authErr := isAIKSBlockReadable(c, id, boxID)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Data = []*model.Block{}
 		return
 	}
 	ret.Data = model.GetChildBlocksInBox(id, boxID)
