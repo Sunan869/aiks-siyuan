@@ -24,6 +24,7 @@ import (
 	ginSessions "github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/siyuan-note/siyuan/kernel/aiks"
 	"github.com/siyuan-note/siyuan/kernel/conf"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
@@ -193,5 +194,107 @@ func TestCheckAuthRemoteSessionOrigin(t *testing.T) {
 	}
 	if recorder := request("https://evil.example"); recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("cross-origin status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+
+// TestCheckAuthAIKSTeamBoundary 验证团队模式不会被旧认证方式或远程 API Token 绕过。
+func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
+	t.Setenv(aiks.TeamAuthEnabledEnv, "true")
+	originalConf := Conf
+	originalWorkspaceDir := util.WorkspaceDir
+	Conf = NewAppConf()
+	Conf.Api = conf.NewAPI()
+	Conf.Api.Token = "internal-api-token"
+	Conf.AccessAuthCode = "legacy-access-code"
+	util.WorkspaceDir = "team-workspace"
+	t.Cleanup(func() {
+		Conf = originalConf
+		util.WorkspaceDir = originalWorkspaceDir
+	})
+
+	engine := gin.New()
+	store := cookie.NewStore([]byte("aiks-team-session-cookie-key"))
+	engine.Use(ginSessions.Sessions("siyuan", store))
+	engine.GET("/legacy-login", func(c *gin.Context) {
+		session := util.GetSession(c)
+		util.GetWorkspaceSession(session).AccessAuthCode = Conf.AccessAuthCode
+		if err := session.Save(c); err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusNoContent)
+	})
+	engine.GET("/aiks-login", func(c *gin.Context) {
+		session := util.GetSession(c)
+		ok := util.SetAIKSPrincipal(session, aiks.Principal{
+			CompanyID:   "corp-1",
+			UserID:      "user-a",
+			SessionID:   "session-1",
+			AuthVersion: "4",
+		})
+		if !ok || session.Save(c) != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusNoContent)
+	})
+	engine.POST("/api/test", CheckAuth, func(c *gin.Context) {
+		if principal, exists := c.Get(aiks.PrincipalContextKey); exists {
+			if principal.(*aiks.Principal).UserID != "user-a" {
+				c.Status(http.StatusInternalServerError)
+				return
+			}
+		}
+		c.Status(http.StatusNoContent)
+	})
+
+	login := func(path string) []*http.Cookie {
+		request := httptest.NewRequest(http.MethodGet, "http://192.0.2.1:6806"+path, nil)
+		request.RemoteAddr = "192.0.2.2:1234"
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusNoContent {
+			t.Fatalf("%s status = %d, want %d", path, recorder.Code, http.StatusNoContent)
+		}
+		return recorder.Result().Cookies()
+	}
+	post := func(remote, origin, authorization, query string, cookies []*http.Cookie) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, "http://192.0.2.1:6806/api/test"+query, nil)
+		request.RemoteAddr = remote
+		if origin != "" {
+			request.Header.Set("Origin", origin)
+		}
+		if authorization != "" {
+			request.Header.Set("Authorization", authorization)
+		}
+		for _, cookie := range cookies {
+			request.AddCookie(cookie)
+		}
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	legacyCookies := login("/legacy-login")
+	if recorder := post("192.0.2.2:1234", "http://192.0.2.1:6806", "", "", legacyCookies); recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("legacy session status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+	if recorder := post("192.0.2.2:1234", "", "", "?token=internal-api-token", nil); recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("query token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+	if recorder := post("192.0.2.2:1234", "", "Token internal-api-token", "", nil); recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("remote API token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+	if recorder := post("127.0.0.1:1234", "", "Token internal-api-token", "", nil); recorder.Code != http.StatusNoContent {
+		t.Fatalf("local service API token status = %d, want %d, body = %s", recorder.Code, http.StatusNoContent, recorder.Body.String())
+	}
+
+	aiksCookies := login("/aiks-login")
+	if recorder := post("192.0.2.2:1234", "http://192.0.2.1:6806", "", "", aiksCookies); recorder.Code != http.StatusNoContent {
+		t.Fatalf("AIKS same-origin status = %d, want %d, body = %s", recorder.Code, http.StatusNoContent, recorder.Body.String())
+	}
+	if recorder := post("192.0.2.2:1234", "https://evil.example", "", "", aiksCookies); recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("AIKS cross-origin status = %d, want %d", recorder.Code, http.StatusUnauthorized)
 	}
 }
