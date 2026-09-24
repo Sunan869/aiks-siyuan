@@ -19,31 +19,45 @@ import (
 func TestConsumeWorkspaceTicket(t *testing.T) {
 	expectedTicket := "ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != consumeTicketPath {
-			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected method: %s", r.Method)
 		}
 		if r.Host != "team.example.test" {
 			t.Fatalf("Host = %q, want team.example.test", r.Host)
 		}
 		if r.Header.Get("Authorization") != "" {
-			t.Fatal("AIKS access token must not be sent to workspace ticket consumption")
+			t.Fatal("AIKS access token must not be sent to workspace authentication")
 		}
-		var body map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatal(err)
+		switch r.URL.Path {
+		case consumeTicketPath:
+			var body map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if body["ticket"] != expectedTicket {
+				t.Fatalf("ticket = %q, want %q", body["ticket"], expectedTicket)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(Principal{
+				InstanceID:  "instance-1",
+				CompanyID:   "corp-1",
+				UserID:      "user-a",
+				SpaceID:     "space-a",
+				SessionID:   "session-1",
+				AuthVersion: 4,
+			})
+		case validatePrincipalPath:
+			principal := &Principal{}
+			if err := json.NewDecoder(r.Body).Decode(principal); err != nil {
+				t.Fatal(err)
+			}
+			if !principal.Valid() || principal.UserID != "user-a" {
+				t.Fatalf("unexpected principal validation body: %+v", principal)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if body["ticket"] != expectedTicket {
-			t.Fatalf("ticket = %q, want %q", body["ticket"], expectedTicket)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(Principal{
-			InstanceID:  "instance-1",
-			CompanyID:   "corp-1",
-			UserID:      "user-a",
-			SpaceID:     "space-a",
-			SessionID:   "session-1",
-			AuthVersion: 4,
-		})
 	}))
 	defer server.Close()
 
@@ -57,6 +71,9 @@ func TestConsumeWorkspaceTicket(t *testing.T) {
 	}
 	if principal.CompanyID != "corp-1" || principal.UserID != "user-a" || principal.AuthVersion != 4 {
 		t.Fatalf("unexpected principal: %+v", principal)
+	}
+	if err = client.ValidatePrincipal(context.Background(), principal); err != nil {
+		t.Fatal(err)
 	}
 }
 
