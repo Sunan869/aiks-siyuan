@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/siyuan-note/siyuan/kernel/aiks"
+	"github.com/siyuan-note/siyuan/kernel/model"
 )
 
 func TestFilterAIKSReadableDocuments(t *testing.T) {
@@ -61,6 +62,22 @@ func TestFilterAIKSReadableDocuments(t *testing.T) {
 	}
 	if allowed["20260924180000-private1"] || !allowed["20260924180000-shared01"] {
 		t.Fatalf("unexpected allowed set: %+v", allowed)
+	}
+
+	blocks, err := filterAIKSReadableBlocks(c, []*model.Block{
+		{ID: "20260924180100-block001", RootID: "20260924180000-private1"},
+		{ID: "20260924180100-block002", RootID: "20260924180000-shared01"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blocks) != 1 || blocks[0].RootID != "20260924180000-shared01" {
+		t.Fatalf("unexpected filtered blocks: %+v", blocks)
+	}
+	matchedBlocks, matchedRoots, pageCount := 99, 88, 77
+	sanitizeAIKSSearchCounts(c, blocks, 3, &matchedBlocks, &matchedRoots, &pageCount)
+	if matchedBlocks != 1 || matchedRoots != 1 || pageCount != 3 {
+		t.Fatalf("unexpected sanitized counts: blocks=%d roots=%d pages=%d", matchedBlocks, matchedRoots, pageCount)
 	}
 }
 

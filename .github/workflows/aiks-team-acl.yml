@@ -39,6 +39,7 @@ jobs:
             api/aiks_acl.go
             api/aiks_acl_test.go
             api/filetree.go
+            api/search.go
             model/session.go
             model/session_test.go
             util/session.go

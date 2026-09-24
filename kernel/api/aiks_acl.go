@@ -11,8 +11,10 @@ package api
 import (
 	"errors"
 
+	"github.com/88250/lute/ast"
 	"github.com/gin-gonic/gin"
 	"github.com/siyuan-note/siyuan/kernel/aiks"
+	"github.com/siyuan-note/siyuan/kernel/model"
 )
 
 var errAIKSTeamAuthorizationUnavailable = errors.New("AIKS team authorization unavailable")
@@ -62,4 +64,66 @@ func isAIKSDocumentReadable(c *gin.Context, documentID string) (bool, error) {
 		return false, err
 	}
 	return allowed[documentID], nil
+}
+
+func filterAIKSReadableBlocks(c *gin.Context, blocks []*model.Block) ([]*model.Block, error) {
+	if len(blocks) == 0 {
+		return blocks, nil
+	}
+	documentIDs := make([]string, 0, len(blocks))
+	seen := make(map[string]struct{}, len(blocks))
+	for _, block := range blocks {
+		if block == nil || !ast.IsNodeIDPattern(block.RootID) {
+			continue
+		}
+		if _, exists := seen[block.RootID]; exists {
+			continue
+		}
+		seen[block.RootID] = struct{}{}
+		documentIDs = append(documentIDs, block.RootID)
+	}
+	allowed, err := filterAIKSReadableDocuments(c, documentIDs)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]*model.Block, 0, len(blocks))
+	for _, block := range blocks {
+		if block != nil && ast.IsNodeIDPattern(block.RootID) && allowed[block.RootID] {
+			filtered = append(filtered, block)
+		}
+	}
+	return filtered, nil
+}
+
+func hasAIKSTeamBrowserPrincipal(c *gin.Context) bool {
+	if !aiks.TeamAuthEnabled() {
+		return false
+	}
+	_, exists := c.Get(aiks.PrincipalContextKey)
+	return exists
+}
+
+func countAIKSBlockRoots(blocks []*model.Block) int {
+	roots := make(map[string]struct{}, len(blocks))
+	for _, block := range blocks {
+		if block != nil && ast.IsNodeIDPattern(block.RootID) {
+			roots[block.RootID] = struct{}{}
+		}
+	}
+	return len(roots)
+}
+
+func sanitizeAIKSSearchCounts(c *gin.Context, blocks []*model.Block, page int, matchedBlockCount, matchedRootCount, pageCount *int) {
+	if !hasAIKSTeamBrowserPrincipal(c) {
+		return
+	}
+	*matchedBlockCount = len(blocks)
+	*matchedRootCount = countAIKSBlockRoots(blocks)
+	if len(blocks) == 0 {
+		*pageCount = 0
+	} else {
+		// Post-filtering cannot safely expose the unfiltered total page count. Keep the
+		// current page usable without leaking the number of matches in private documents.
+		*pageCount = page
+	}
 }

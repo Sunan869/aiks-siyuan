@@ -528,6 +528,16 @@ func searchRefBlock(c *gin.Context) {
 		publishAccess := model.GetPublishAccess()
 		blocks = model.FilterBlocksByPublishAccess(c, publishAccess, blocks)
 	}
+	filteredBlocks, authErr := filterAIKSReadableBlocks(c, blocks)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	blocks = filteredBlocks
+	if hasAIKSTeamBrowserPrincipal(c) {
+		newDoc = len(blocks) == 0
+	}
 	ret.Data = map[string]any{
 		"blocks": blocks,
 		"newDoc": newDoc,
@@ -614,6 +624,14 @@ func fullTextSearchBlock(c *gin.Context) {
 		publishAccess := model.GetPublishAccess()
 		blocks = model.FilterBlocksByPublishAccess(c, publishAccess, blocks)
 	}
+	filteredBlocks, authErr := filterAIKSReadableBlocks(c, blocks)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	blocks = filteredBlocks
+	sanitizeAIKSSearchCounts(c, blocks, page, &matchedBlockCount, &matchedRootCount, &pageCount)
 	ret.Data = map[string]any{
 		"blocks":            blocks,
 		"matchedBlockCount": matchedBlockCount,
@@ -778,6 +796,14 @@ func semanticSearchBlock(c *gin.Context) {
 		publishAccess := model.GetPublishAccess()
 		blocks = model.FilterBlocksByPublishAccess(c, publishAccess, blocks)
 	}
+	filteredBlocks, authErr := filterAIKSReadableBlocks(c, blocks)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	blocks = filteredBlocks
+	sanitizeAIKSSearchCounts(c, blocks, page, &matchedBlockCount, &matchedRootCount, &pageCount)
 	ret.Data = map[string]any{
 		"blocks":            blocks,
 		"matchedBlockCount": matchedBlockCount,
