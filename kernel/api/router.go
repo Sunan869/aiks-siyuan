@@ -47,6 +47,7 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/system/oidc/poll", model.OIDCPoll)
 	ginServer.Handle("POST", "/api/system/oidc/validatePoll", model.OIDCValidatePoll)
 	ginServer.Handle("GET", "/api/ai/mcp/oauth/callback/:flowID", mcpOAuthCallback)
+	ginServer.Handle("POST", "/api/aiks/auth/exchange", aiksAuthExchange)
 	// 需要鉴权
 
 	ginServer.Handle("GET", "/api/icon/getDynamicIcon", model.CheckAuth, getDynamicIcon)
