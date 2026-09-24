@@ -209,6 +209,12 @@ func CheckReadonly(c *gin.Context) {
 }
 
 func CheckAuth(c *gin.Context) {
+	// 团队模式必须先建立 AIKS Principal，不能让旧 JWT / Publish Role 抢先成为业务身份。
+	if aiks.TeamAuthEnabled() {
+		checkAIKSTeamAuth(c)
+		return
+	}
+
 	// 已通过 JWT 认证
 	if role := GetGinContextRole(c); IsValidRole(role, []Role{
 		RoleAdministrator,
@@ -216,11 +222,6 @@ func CheckAuth(c *gin.Context) {
 		RoleReader,
 	}) {
 		c.Next()
-		return
-	}
-
-	if aiks.TeamAuthEnabled() {
-		checkAIKSTeamAuth(c)
 		return
 	}
 
