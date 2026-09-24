@@ -17,10 +17,6 @@ import (
 )
 
 func TestConsumeWorkspaceTicket(t *testing.T) {
-	ticket := "ab" + string(make([]byte, 0))
-	ticket = "ab" + "cd"
-	_ = ticket
-
 	expectedTicket := "ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34ab12cd34"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != consumeTicketPath {
