@@ -33,7 +33,8 @@ func aiksAuthExchange(c *gin.Context) {
 		return
 	}
 
-	decoder := json.NewDecoder(io.LimitReader(c.Request.Body, maxAIKSAuthExchangeBody+1))
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAIKSAuthExchangeBody)
+	decoder := json.NewDecoder(c.Request.Body)
 	decoder.DisallowUnknownFields()
 	input := &aiksAuthExchangeInput{}
 	if err := decoder.Decode(input); err != nil || input.Ticket == "" {
