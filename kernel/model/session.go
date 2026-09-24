@@ -17,6 +17,7 @@
 package model
 
 import (
+	"errors"
 	"image/color"
 	"net/http"
 	"net/url"
@@ -426,6 +427,23 @@ func checkAIKSTeamAuth(c *gin.Context) {
 		if !util.IsSessionOriginAllowed(c.GetHeader("Origin"), c.Request.Host) {
 			logging.LogWarnf("invalid Origin [%s] for AIKS team session [ip=%s]", c.GetHeader("Origin"), c.ClientIP())
 			c.JSON(http.StatusUnauthorized, map[string]any{"code": -1, "msg": "Auth failed: invalid Origin"})
+			c.Abort()
+			return
+		}
+		client, err := aiks.NewClientFromEnvironment()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, map[string]any{"code": -1, "msg": "AIKS team authentication unavailable"})
+			c.Abort()
+			return
+		}
+		if err = client.ValidatePrincipal(c.Request.Context(), principal); err != nil {
+			if errors.Is(err, aiks.ErrPrincipalRejected) {
+				util.RemoveAIKSPrincipal(session)
+				_ = session.Save(c)
+				c.JSON(http.StatusUnauthorized, map[string]any{"code": -1, "msg": "AIKS team session expired"})
+			} else {
+				c.JSON(http.StatusServiceUnavailable, map[string]any{"code": -1, "msg": "AIKS team authentication unavailable"})
+			}
 			c.Abort()
 			return
 		}
