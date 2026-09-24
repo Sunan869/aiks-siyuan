@@ -248,6 +248,12 @@ func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 		}
 		c.Status(http.StatusNoContent)
 	})
+	engine.POST("/api/legacy-jwt", func(c *gin.Context) {
+		c.Set(RoleContextKey, RoleAdministrator)
+		c.Next()
+	}, CheckAuth, func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
 
 	login := func(path string) []*http.Cookie {
 		request := httptest.NewRequest(http.MethodGet, "http://192.0.2.1:6806"+path, nil)
@@ -285,6 +291,13 @@ func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 	}
 	if recorder := post("192.0.2.2:1234", "", "Token internal-api-token", "", nil); recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("remote API token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+	legacyJWT := httptest.NewRequest(http.MethodPost, "http://192.0.2.1:6806/api/legacy-jwt", nil)
+	legacyJWT.RemoteAddr = "192.0.2.2:1234"
+	legacyJWTRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(legacyJWTRecorder, legacyJWT)
+	if legacyJWTRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("legacy JWT role status = %d, want %d", legacyJWTRecorder.Code, http.StatusUnauthorized)
 	}
 	if recorder := post("127.0.0.1:1234", "", "Token internal-api-token", "", nil); recorder.Code != http.StatusNoContent {
 		t.Fatalf("local service API token status = %d, want %d, body = %s", recorder.Code, http.StatusNoContent, recorder.Body.String())
