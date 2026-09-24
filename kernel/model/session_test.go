@@ -200,6 +200,19 @@ func TestCheckAuthRemoteSessionOrigin(t *testing.T) {
 // TestCheckAuthAIKSTeamBoundary 验证团队模式不会被旧认证方式或远程 API Token 绕过。
 func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 	t.Setenv(aiks.TeamAuthEnabledEnv, "true")
+	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/internal/workspace/principals/validate" {
+			t.Fatalf("unexpected AIKS validation request: %s %s", r.Method, r.URL.Path)
+		}
+		if r.Host != "team.example.test" {
+			t.Fatalf("AIKS validation Host = %q, want team.example.test", r.Host)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer service.Close()
+	t.Setenv(aiks.ServiceURLEnv, service.URL)
+	t.Setenv(aiks.ServiceHostEnv, "team.example.test")
+
 	originalConf := Conf
 	originalWorkspaceDir := util.WorkspaceDir
 	Conf = NewAppConf()
