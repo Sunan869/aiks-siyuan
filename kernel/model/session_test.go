@@ -255,11 +255,14 @@ func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 	})
 	engine.POST("/api/test", CheckAuth, func(c *gin.Context) {
 		if principal, exists := c.Get(aiks.PrincipalContextKey); exists {
-			if principal.(*aiks.Principal).UserID != "user-a" {
+			if principal.(*aiks.Principal).UserID != "user-a" || GetGinContextRole(c) != RoleReader {
 				c.Status(http.StatusInternalServerError)
 				return
 			}
 		}
+		c.Status(http.StatusNoContent)
+	})
+	engine.POST("/api/edit", CheckAuth, CheckEditRole, func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	})
 	engine.POST("/api/legacy-jwt", func(c *gin.Context) {
@@ -320,6 +323,17 @@ func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 	aiksCookies := login("/aiks-login")
 	if recorder := post("192.0.2.2:1234", "http://192.0.2.1:6806", "", "", aiksCookies); recorder.Code != http.StatusNoContent {
 		t.Fatalf("AIKS same-origin status = %d, want %d, body = %s", recorder.Code, http.StatusNoContent, recorder.Body.String())
+	}
+	editRequest := httptest.NewRequest(http.MethodPost, "http://192.0.2.1:6806/api/edit", nil)
+	editRequest.RemoteAddr = "192.0.2.2:1234"
+	editRequest.Header.Set("Origin", "http://192.0.2.1:6806")
+	for _, cookie := range aiksCookies {
+		editRequest.AddCookie(cookie)
+	}
+	editRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(editRecorder, editRequest)
+	if editRecorder.Code != http.StatusForbidden {
+		t.Fatalf("AIKS direct edit status = %d, want %d", editRecorder.Code, http.StatusForbidden)
 	}
 	if recorder := post("192.0.2.2:1234", "https://evil.example", "", "", aiksCookies); recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("AIKS cross-origin status = %d, want %d", recorder.Code, http.StatusUnauthorized)

@@ -439,7 +439,9 @@ func checkAIKSTeamAuth(c *gin.Context) {
 		if err = client.ValidatePrincipal(c.Request.Context(), principal); err != nil {
 			if errors.Is(err, aiks.ErrPrincipalRejected) {
 				util.RemoveAIKSPrincipal(session)
-				_ = session.Save(c)
+				if saveErr := session.Save(c); saveErr != nil {
+					session.Clear(c)
+				}
 				c.JSON(http.StatusUnauthorized, map[string]any{"code": -1, "msg": "AIKS team session expired"})
 			} else {
 				c.JSON(http.StatusServiceUnavailable, map[string]any{"code": -1, "msg": "AIKS team authentication unavailable"})
@@ -448,8 +450,8 @@ func checkAIKSTeamAuth(c *gin.Context) {
 			return
 		}
 		c.Set(aiks.PrincipalContextKey, principal)
-		// 团队用户默认不是 SiYuan 系统管理员。后续资源级中间件负责判断具体文档读写权限。
-		c.Set(RoleContextKey, RoleEditor)
+		// 团队浏览器的原生 SiYuan 接口默认只读。创建者编辑、发布和分享管理必须经过 AIKS Service 的资源级授权。
+		c.Set(RoleContextKey, RoleReader)
 		c.Next()
 		return
 	}
