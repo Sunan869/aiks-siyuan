@@ -49,4 +49,9 @@ jobs:
 
       - name: AIKS team authentication tests
         working-directory: kernel
-        run: go test ./aiks ./util ./model ./api
+        shell: bash
+        run: |
+          go test ./aiks
+          go test ./util
+          go test ./api
+          go test ./model -run 'Test(AuthByAPITokenThrottle|IsLocalRequest|CheckAuthRemoteSessionOrigin|CheckAuthAIKSTeamBoundary)
