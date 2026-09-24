@@ -197,7 +197,6 @@ func TestCheckAuthRemoteSessionOrigin(t *testing.T) {
 	}
 }
 
-
 // TestCheckAuthAIKSTeamBoundary 验证团队模式不会被旧认证方式或远程 API Token 绕过。
 func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 	t.Setenv(aiks.TeamAuthEnabledEnv, "true")
