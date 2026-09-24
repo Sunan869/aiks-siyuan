@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/siyuan-note/siyuan/kernel/aiks"
 )
 
 // TestAuthCodeEquals 验证恒定时间比较的相等与不等判定。
@@ -210,4 +212,63 @@ func resetAuthThrottleForTest(key string) {
 	authThrottleLock.Lock()
 	delete(authThrottles, key)
 	authThrottleLock.Unlock()
+}
+
+// TestAIKSPrincipalSessionLifecycle 验证团队身份写入会清理旧认证来源，并且读取返回副本。
+func TestAIKSPrincipalSessionLifecycle(t *testing.T) {
+	originalWorkspaceDir := WorkspaceDir
+	WorkspaceDir = "/tmp/aiks-team-principal-test"
+	t.Cleanup(func() {
+		WorkspaceDir = originalWorkspaceDir
+	})
+
+	session := &SessionData{}
+	workspace := GetWorkspaceSession(session)
+	workspace.AccessAuthCode = "legacy-code"
+	workspace.OIDCSessionVersion = "legacy-oidc"
+	workspace.OIDCBinding = "legacy-binding"
+
+	principal := aiks.Principal{
+		CompanyID:   "corp-1",
+		UserID:      "user-a",
+		SessionID:   "session-1",
+		AuthVersion: "3",
+	}
+	if !SetAIKSPrincipal(session, principal) {
+		t.Fatal("valid AIKS principal was rejected")
+	}
+	if workspace.AccessAuthCode != "" || workspace.OIDCSessionVersion != "" || workspace.OIDCBinding != "" {
+		t.Fatal("legacy authentication state was not cleared")
+	}
+
+	got := GetAIKSPrincipal(session)
+	if got == nil || !got.EqualIdentity(principal) {
+		t.Fatalf("stored principal = %+v, want %+v", got, principal)
+	}
+	got.UserID = "mutated"
+	if current := GetAIKSPrincipal(session); current == nil || current.UserID != principal.UserID {
+		t.Fatal("caller mutated the persisted principal through a returned pointer")
+	}
+
+	RemoveAIKSPrincipal(session)
+	if got := GetAIKSPrincipal(session); got != nil {
+		t.Fatalf("principal remained after removal: %+v", got)
+	}
+}
+
+// TestAIKSPrincipalSessionRejectsMalformedIdentity 验证畸形身份不会污染当前工作空间会话。
+func TestAIKSPrincipalSessionRejectsMalformedIdentity(t *testing.T) {
+	originalWorkspaceDir := WorkspaceDir
+	WorkspaceDir = "/tmp/aiks-team-invalid-principal-test"
+	t.Cleanup(func() {
+		WorkspaceDir = originalWorkspaceDir
+	})
+
+	session := &SessionData{}
+	if SetAIKSPrincipal(session, aiks.Principal{CompanyID: "corp-1", UserID: " user"}) {
+		t.Fatal("malformed AIKS principal was accepted")
+	}
+	if got := GetAIKSPrincipal(session); got != nil {
+		t.Fatalf("invalid principal was persisted: %+v", got)
+	}
 }
