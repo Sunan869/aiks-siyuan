@@ -26,8 +26,9 @@ const (
 	ServiceURLEnv  = "AIKS_TEAM_SERVICE_URL"
 	ServiceHostEnv = "AIKS_TEAM_SERVICE_HOST"
 
-	consumeTicketPath = "/api/v1/internal/workspace/tickets/consume"
-	maxResponseBytes  = 8 * 1024
+	consumeTicketPath     = "/api/v1/internal/workspace/tickets/consume"
+	validatePrincipalPath = "/api/v1/internal/workspace/principals/validate"
+	maxResponseBytes      = 8 * 1024
 )
 
 type Client struct {
@@ -67,6 +68,36 @@ func NewClient(rawURL, host string) (*Client, error) {
 			},
 		},
 	}, nil
+}
+
+func (client *Client) ValidatePrincipal(ctx context.Context, principal *Principal) error {
+	if principal == nil || !principal.Valid() {
+		return errors.New("invalid AIKS workspace principal")
+	}
+	body, err := json.Marshal(principal)
+	if err != nil {
+		return errors.New("encode AIKS workspace principal")
+	}
+	endpoint := *client.baseURL
+	endpoint.Path = validatePrincipalPath
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(body))
+	if err != nil {
+		return errors.New("create AIKS workspace principal request")
+	}
+	request.Host = client.host
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	response, err := client.http.Do(request)
+	if err != nil {
+		return errors.New("AIKS workspace principal validation unavailable")
+	}
+	defer response.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
+	if response.StatusCode != http.StatusNoContent {
+		return errors.New("AIKS workspace principal rejected")
+	}
+	return nil
 }
 
 func (client *Client) ConsumeWorkspaceTicket(ctx context.Context, ticket string) (*Principal, error) {
