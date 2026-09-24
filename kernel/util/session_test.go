@@ -232,7 +232,7 @@ func TestAIKSPrincipalSessionLifecycle(t *testing.T) {
 		CompanyID:   "corp-1",
 		UserID:      "user-a",
 		SessionID:   "session-1",
-		AuthVersion: "3",
+		AuthVersion: 3,
 	}
 	if !SetAIKSPrincipal(session, principal) {
 		t.Fatal("valid AIKS principal was rejected")
