@@ -51,7 +51,10 @@ func NewClient(rawURL, host string) (*Client, error) {
 		return nil, errors.New("AIKS team service must use a fixed numeric loopback origin")
 	}
 	host = strings.TrimSpace(host)
-	if host == "" || len(host) > 512 || strings.ContainsAny(host, "/?#@") || containsControl(host) {
+	publicURL, publicErr := url.Parse("https://" + host)
+	if host == "" || len(host) > 512 || strings.Contains(host, " ") || containsControl(host) ||
+		publicErr != nil || publicURL.User != nil || publicURL.Host != host || publicURL.Hostname() == "" ||
+		publicURL.Path != "" || publicURL.RawQuery != "" || publicURL.Fragment != "" {
 		return nil, errors.New("invalid AIKS team service Host")
 	}
 	return &Client{
