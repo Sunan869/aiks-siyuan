@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/88250/gulu"
+	"github.com/siyuan-note/siyuan/kernel/aiks"
 	ginSessions "github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/siyuan-note/logging"
@@ -154,6 +155,7 @@ type WorkspaceSession struct {
 	OIDCSessionVersion string
 	OIDCBinding        string
 	Captcha            string
+	AIKSPrincipal      *aiks.Principal
 }
 
 func (sd *SessionData) Clear(c *gin.Context) {
@@ -209,6 +211,37 @@ func GetWorkspaceSession(session *SessionData) (ret *WorkspaceSession) {
 
 func RemoveWorkspaceSession(session *SessionData) {
 	delete(session.Workspaces, WorkspaceDir)
+}
+
+// SetAIKSPrincipal 为当前工作空间保存已经由 AIKS SSO 验证过的团队身份。
+// 设置团队身份时清除旧的锁屏码和 OIDC 状态，避免同一工作空间同时存在两套认证来源。
+func SetAIKSPrincipal(session *SessionData, principal aiks.Principal) bool {
+	if !principal.Valid() {
+		return false
+	}
+	workspaceSession := GetWorkspaceSession(session)
+	copy := principal
+	workspaceSession.AIKSPrincipal = &copy
+	workspaceSession.AccessAuthCode = ""
+	workspaceSession.OIDCSessionVersion = ""
+	workspaceSession.OIDCBinding = ""
+	return true
+}
+
+// GetAIKSPrincipal 返回当前工作空间的有效团队身份副本，畸形或缺失身份返回 nil。
+func GetAIKSPrincipal(session *SessionData) *aiks.Principal {
+	workspaceSession := GetWorkspaceSession(session)
+	if workspaceSession.AIKSPrincipal == nil || !workspaceSession.AIKSPrincipal.Valid() {
+		return nil
+	}
+	copy := *workspaceSession.AIKSPrincipal
+	return &copy
+}
+
+// RemoveAIKSPrincipal 只清除 AIKS 团队身份，不恢复任何旧认证状态。
+func RemoveAIKSPrincipal(session *SessionData) {
+	workspaceSession := GetWorkspaceSession(session)
+	workspaceSession.AIKSPrincipal = nil
 }
 
 // IsBrowserRequest 判断请求是否来自浏览器（非 SiYuan 原生客户端）。
