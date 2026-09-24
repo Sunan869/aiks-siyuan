@@ -33,7 +33,8 @@ const (
 
 	consumeTicketPath     = "/api/v1/internal/workspace/tickets/consume"
 	validatePrincipalPath = "/api/v1/internal/workspace/principals/validate"
-	maxResponseBytes      = 8 * 1024
+	filterDocumentsPath   = "/api/v1/internal/workspace/documents/filter"
+	maxResponseBytes      = 32 * 1024
 )
 
 type Client struct {
@@ -106,6 +107,79 @@ func (client *Client) ValidatePrincipal(ctx context.Context, principal *Principa
 		return ErrPrincipalRejected
 	}
 	return ErrServiceUnavailable
+}
+
+
+type filterDocumentsRequest struct {
+	Principal   Principal `json:"principal"`
+	DocumentIDs []string  `json:"document_ids"`
+}
+
+type filterDocumentsResponse struct {
+	DocumentIDs []string `json:"document_ids"`
+}
+
+func (client *Client) FilterReadableDocuments(ctx context.Context, principal *Principal, documentIDs []string) ([]string, error) {
+	if principal == nil || !principal.Valid() || len(documentIDs) > 512 {
+		return nil, errors.New("invalid AIKS workspace document filter")
+	}
+	for _, id := range documentIDs {
+		if !validIdentity(id) {
+			return nil, errors.New("invalid AIKS workspace document id")
+		}
+	}
+	body, err := json.Marshal(filterDocumentsRequest{
+		Principal:   *principal,
+		DocumentIDs: documentIDs,
+	})
+	if err != nil {
+		return nil, errors.New("encode AIKS workspace document filter")
+	}
+	endpoint := *client.baseURL
+	endpoint.Path = filterDocumentsPath
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.New("create AIKS workspace document filter request")
+	}
+	request.Host = client.host
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	response, err := client.http.Do(request)
+	if err != nil {
+		return nil, ErrServiceUnavailable
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
+		if response.StatusCode >= 400 && response.StatusCode < 500 {
+			return nil, ErrPrincipalRejected
+		}
+		return nil, ErrServiceUnavailable
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	if err != nil || len(data) > maxResponseBytes {
+		return nil, ErrServiceUnavailable
+	}
+	output := &filterDocumentsResponse{}
+	if err = json.Unmarshal(data, output); err != nil || len(output.DocumentIDs) > len(documentIDs) {
+		return nil, ErrServiceUnavailable
+	}
+	requested := make(map[string]struct{}, len(documentIDs))
+	for _, id := range documentIDs {
+		requested[id] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(output.DocumentIDs))
+	for _, id := range output.DocumentIDs {
+		if _, ok := requested[id]; !ok || !validIdentity(id) {
+			return nil, ErrServiceUnavailable
+		}
+		if _, duplicate := seen[id]; duplicate {
+			return nil, ErrServiceUnavailable
+		}
+		seen[id] = struct{}{}
+	}
+	return output.DocumentIDs, nil
 }
 
 func (client *Client) ConsumeWorkspaceTicket(ctx context.Context, ticket string) (*Principal, error) {

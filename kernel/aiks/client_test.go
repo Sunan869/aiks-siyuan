@@ -29,6 +29,15 @@ func TestConsumeWorkspaceTicket(t *testing.T) {
 			t.Fatal("AIKS access token must not be sent to workspace authentication")
 		}
 		switch r.URL.Path {
+		case filterDocumentsPath:
+			var input filterDocumentsRequest
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				t.Fatal(err)
+			}
+			if input.Principal.UserID != "user-a" || len(input.DocumentIDs) != 2 {
+				t.Fatalf("unexpected filter input: %+v", input)
+			}
+			_ = json.NewEncoder(w).Encode(filterDocumentsResponse{DocumentIDs: []string{input.DocumentIDs[1]}})
 		case consumeTicketPath:
 			var body map[string]string
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -74,6 +83,17 @@ func TestConsumeWorkspaceTicket(t *testing.T) {
 	}
 	if err = client.ValidatePrincipal(context.Background(), principal); err != nil {
 		t.Fatal(err)
+	}
+	visible, err := client.FilterReadableDocuments(
+		context.Background(),
+		principal,
+		[]string{"20260924180000-private1", "20260924180000-shared01"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(visible) != 1 || visible[0] != "20260924180000-shared01" {
+		t.Fatalf("visible documents = %v", visible)
 	}
 }
 

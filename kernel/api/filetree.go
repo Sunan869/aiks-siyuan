@@ -1352,7 +1352,26 @@ func searchDocs(c *gin.Context) {
 		publishAccess := model.GetPublishAccess()
 		docs = model.FilterSearchDocsByPublishAccess(c, publishAccess, docs)
 	}
-	ret.Data = docs
+	docIDs := make([]string, 0, len(docs))
+	for _, doc := range docs {
+		if id := util.GetTreeID(doc["path"]); ast.IsNodeIDPattern(id) {
+			docIDs = append(docIDs, id)
+		}
+	}
+	allowed, err := filterAIKSReadableDocuments(c, docIDs)
+	if err != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	filteredDocs := docs[:0]
+	for _, doc := range docs {
+		id := util.GetTreeID(doc["path"])
+		if !ast.IsNodeIDPattern(id) || allowed[id] {
+			filteredDocs = append(filteredDocs, doc)
+		}
+	}
+	ret.Data = filteredDocs
 }
 
 func listDocsByPath(c *gin.Context) {
@@ -1416,6 +1435,24 @@ func listDocsByPath(c *gin.Context) {
 		showHidden = arg["showHidden"].(bool)
 	}
 
+	if parentID := util.GetTreeID(p); ast.IsNodeIDPattern(parentID) {
+		readable, authErr := isAIKSDocumentReadable(c, parentID)
+		if authErr != nil {
+			ret.Code = -1
+			ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+			return
+		}
+		if !readable {
+			ret.Data = map[string]any{
+				"box":               notebook,
+				"path":              p,
+				"files":             []*model.File{},
+				"effectiveSortMode": effectiveSortMode,
+			}
+			return
+		}
+	}
+
 	files, totals, err := model.ListDocTree(notebook, p, effectiveSortMode, flashcard, showHidden, maxListCount)
 	if err != nil {
 		ret.Code = -1
@@ -1436,6 +1473,26 @@ func listDocsByPath(c *gin.Context) {
 		}
 		files = tempFiles
 	}
+	fileIDs := make([]string, 0, len(files))
+	for _, file := range files {
+		if ast.IsNodeIDPattern(file.ID) {
+			fileIDs = append(fileIDs, file.ID)
+		}
+	}
+	allowed, authErr := filterAIKSReadableDocuments(c, fileIDs)
+	if authErr != nil {
+		ret.Code = -1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	filteredFiles := files[:0]
+	for _, file := range files {
+		if !ast.IsNodeIDPattern(file.ID) || allowed[file.ID] {
+			filteredFiles = append(filteredFiles, file)
+		}
+	}
+	files = filteredFiles
+	totals = len(files)
 	if maxListCount < totals {
 		// API `listDocsByPath` add an optional parameter `ignoreMaxListHint` https://github.com/siyuan-note/siyuan/issues/10290
 		ignoreMaxListHintArg := arg["ignoreMaxListHint"]
@@ -1584,6 +1641,16 @@ func getDoc(c *gin.Context) {
 	if err != nil {
 		ret.Code = 1
 		ret.Msg = err.Error()
+		return
+	}
+	readable, authErr := isAIKSDocumentReadable(c, rootID)
+	if authErr != nil {
+		ret.Code = 1
+		ret.Msg = errAIKSTeamAuthorizationUnavailable.Error()
+		return
+	}
+	if !readable {
+		ret.Code = 3
 		return
 	}
 
