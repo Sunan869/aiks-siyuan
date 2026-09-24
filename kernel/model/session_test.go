@@ -228,8 +228,10 @@ func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 	engine.GET("/aiks-login", func(c *gin.Context) {
 		session := util.GetSession(c)
 		ok := util.SetAIKSPrincipal(session, aiks.Principal{
+			InstanceID:  "instance-1",
 			CompanyID:   "corp-1",
 			UserID:      "user-a",
+			SpaceID:     "space-a",
 			SessionID:   "session-1",
 			AuthVersion: 4,
 		})
