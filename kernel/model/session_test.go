@@ -231,7 +231,7 @@ func TestCheckAuthAIKSTeamBoundary(t *testing.T) {
 			CompanyID:   "corp-1",
 			UserID:      "user-a",
 			SessionID:   "session-1",
-			AuthVersion: "4",
+			AuthVersion: 4,
 		})
 		if !ok || session.Save(c) != nil {
 			c.Status(http.StatusInternalServerError)
