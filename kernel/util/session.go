@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/88250/gulu"
-	"github.com/siyuan-note/siyuan/kernel/aiks"
 	ginSessions "github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/siyuan-note/logging"
+	"github.com/siyuan-note/siyuan/kernel/aiks"
 )
 
 var WrongAuthCount int
