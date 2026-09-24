@@ -37,8 +37,10 @@ func TestConsumeWorkspaceTicket(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(Principal{
+			InstanceID:  "instance-1",
 			CompanyID:   "corp-1",
 			UserID:      "user-a",
+			SpaceID:     "space-a",
 			SessionID:   "session-1",
 			AuthVersion: 4,
 		})
