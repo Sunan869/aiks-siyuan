@@ -229,8 +229,10 @@ func TestAIKSPrincipalSessionLifecycle(t *testing.T) {
 	workspace.OIDCBinding = "legacy-binding"
 
 	principal := aiks.Principal{
+		InstanceID:  "instance-1",
 		CompanyID:   "corp-1",
 		UserID:      "user-a",
+		SpaceID:     "space-a",
 		SessionID:   "session-1",
 		AuthVersion: 3,
 	}
@@ -265,7 +267,7 @@ func TestAIKSPrincipalSessionRejectsMalformedIdentity(t *testing.T) {
 	})
 
 	session := &SessionData{}
-	if SetAIKSPrincipal(session, aiks.Principal{CompanyID: "corp-1", UserID: " user"}) {
+	if SetAIKSPrincipal(session, aiks.Principal{InstanceID: "instance-1", CompanyID: "corp-1", UserID: " user"}) {
 		t.Fatal("malformed AIKS principal was accepted")
 	}
 	if got := GetAIKSPrincipal(session); got != nil {
