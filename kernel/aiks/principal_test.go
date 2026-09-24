@@ -12,8 +12,10 @@ import "testing"
 
 func TestPrincipalValidation(t *testing.T) {
 	valid := Principal{
+		InstanceID:  "instance-1",
 		CompanyID:   "corp-1",
 		UserID:      "user_a",
+		SpaceID:     "space-a",
 		SessionID:   "session-1",
 		AuthVersion: 7,
 	}
@@ -23,10 +25,10 @@ func TestPrincipalValidation(t *testing.T) {
 
 	tests := []Principal{
 		{},
-		{CompanyID: "corp-1", UserID: " user", SessionID: "session-1", AuthVersion: 7},
-		{CompanyID: "corp-1", UserID: "user\nname", SessionID: "session-1", AuthVersion: 7},
-		{CompanyID: "corp-1", UserID: "user", SessionID: "", AuthVersion: 7},
-		{CompanyID: "corp-1", UserID: "user", SessionID: "session-1", AuthVersion: 0},
+		{CompanyID: "corp-1", UserID: " user", SpaceID: "space-a", SessionID: "session-1", AuthVersion: 7},
+		{CompanyID: "corp-1", UserID: "user\nname", SpaceID: "space-a", SessionID: "session-1", AuthVersion: 7},
+		{CompanyID: "corp-1", UserID: "user", SpaceID: "space-a", SessionID: "", AuthVersion: 7},
+		{CompanyID: "corp-1", UserID: "user", SpaceID: "space-a", SessionID: "session-1", AuthVersion: 0},
 	}
 	for _, principal := range tests {
 		if principal.Valid() {
@@ -36,7 +38,7 @@ func TestPrincipalValidation(t *testing.T) {
 }
 
 func TestPrincipalEqualIdentity(t *testing.T) {
-	left := Principal{CompanyID: "corp-1", UserID: "user-a", SessionID: "session-1", AuthVersion: 2}
+	left := Principal{InstanceID: "instance-1", CompanyID: "corp-1", UserID: "user-a", SessionID: "session-1", AuthVersion: 2}
 	right := left
 	if !left.EqualIdentity(right) {
 		t.Fatal("identical principals were not equal")
