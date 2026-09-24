@@ -38,7 +38,7 @@ func TestPrincipalValidation(t *testing.T) {
 }
 
 func TestPrincipalEqualIdentity(t *testing.T) {
-	left := Principal{InstanceID: "instance-1", CompanyID: "corp-1", UserID: "user-a", SessionID: "session-1", AuthVersion: 2}
+	left := Principal{InstanceID: "instance-1", CompanyID: "corp-1", UserID: "user-a", SpaceID: "space-a", SessionID: "session-1", AuthVersion: 2}
 	right := left
 	if !left.EqualIdentity(right) {
 		t.Fatal("identical principals were not equal")
