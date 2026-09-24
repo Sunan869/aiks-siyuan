@@ -31,25 +31,32 @@ func TestAIKSAuthExchangeCreatesWorkspaceSession(t *testing.T) {
 		if r.Host != "team.example.test" {
 			t.Fatalf("AIKS service Host = %q, want team.example.test", r.Host)
 		}
-		if exchanges.Add(1) != 1 {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
+		switch r.URL.Path {
+		case "/api/v1/internal/workspace/tickets/consume":
+			if exchanges.Add(1) != 1 {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			var input map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				t.Fatal(err)
+			}
+			if input["ticket"] != ticket {
+				t.Fatalf("ticket = %q, want %q", input["ticket"], ticket)
+			}
+			_ = json.NewEncoder(w).Encode(aiks.Principal{
+				InstanceID:  "instance-1",
+				CompanyID:   "corp-1",
+				UserID:      "user-a",
+				SpaceID:     "space-a",
+				SessionID:   "session-1",
+				AuthVersion: 9,
+			})
+		case "/api/v1/internal/workspace/principals/validate":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected AIKS service path: %s", r.URL.Path)
 		}
-		var input map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-			t.Fatal(err)
-		}
-		if input["ticket"] != ticket {
-			t.Fatalf("ticket = %q, want %q", input["ticket"], ticket)
-		}
-		_ = json.NewEncoder(w).Encode(aiks.Principal{
-			InstanceID:  "instance-1",
-			CompanyID:   "corp-1",
-			UserID:      "user-a",
-			SpaceID:     "space-a",
-			SessionID:   "session-1",
-			AuthVersion: 9,
-		})
 	}))
 	defer service.Close()
 
