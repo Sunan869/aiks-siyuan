@@ -109,7 +109,6 @@ func (client *Client) ValidatePrincipal(ctx context.Context, principal *Principa
 	return ErrServiceUnavailable
 }
 
-
 type filterDocumentsRequest struct {
 	Principal   Principal `json:"principal"`
 	DocumentIDs []string  `json:"document_ids"`
