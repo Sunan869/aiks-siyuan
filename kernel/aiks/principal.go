@@ -27,7 +27,7 @@ type Principal struct {
 	CompanyID   string `json:"company_id"`
 	UserID      string `json:"user_id"`
 	SessionID   string `json:"session_id"`
-	AuthVersion string `json:"auth_version"`
+	AuthVersion uint64 `json:"auth_version"`
 }
 
 // Valid 只接受有界、无控制字符的稳定身份字段。
@@ -36,7 +36,7 @@ func (p Principal) Valid() bool {
 	return validIdentity(p.CompanyID) &&
 		validIdentity(p.UserID) &&
 		validIdentity(p.SessionID) &&
-		validIdentity(p.AuthVersion)
+		p.AuthVersion > 0
 }
 
 // EqualIdentity 判断两个 Principal 是否属于同一授权会话。
