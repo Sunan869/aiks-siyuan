@@ -54,24 +54,24 @@ func TestFilterAIKSReadableDocuments(t *testing.T) {
 		AuthVersion: 1,
 	})
 	allowed, err := filterAIKSReadableDocuments(c, []string{
-		"20260924180000-private1",
-		"20260924180000-shared01",
+		"20260924180000-priv001",
+		"20260924180000-share01",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if allowed["20260924180000-private1"] || !allowed["20260924180000-shared01"] {
+	if allowed["20260924180000-priv001"] || !allowed["20260924180000-share01"] {
 		t.Fatalf("unexpected allowed set: %+v", allowed)
 	}
 
 	blocks, err := filterAIKSReadableBlocks(c, []*model.Block{
-		{ID: "20260924180100-block001", RootID: "20260924180000-private1"},
-		{ID: "20260924180100-block002", RootID: "20260924180000-shared01"},
+		{ID: "20260924180100-block01", RootID: "20260924180000-priv001"},
+		{ID: "20260924180100-block02", RootID: "20260924180000-share01"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(blocks) != 1 || blocks[0].RootID != "20260924180000-shared01" {
+	if len(blocks) != 1 || blocks[0].RootID != "20260924180000-share01" {
 		t.Fatalf("unexpected filtered blocks: %+v", blocks)
 	}
 	matchedBlocks, matchedRoots, pageCount := 99, 88, 77
@@ -87,8 +87,8 @@ func TestFilterAIKSReadableDocumentsAllowsTrustedLoopbackServiceContext(t *testi
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/test", nil)
 	c.Request.RemoteAddr = "127.0.0.1:1234"
 	c.Set(model.RoleContextKey, model.RoleAdministrator)
-	allowed, err := filterAIKSReadableDocuments(c, []string{"20260924180000-service1"})
-	if err != nil || !allowed["20260924180000-service1"] {
+	allowed, err := filterAIKSReadableDocuments(c, []string{"20260924180000-serv001"})
+	if err != nil || !allowed["20260924180000-serv001"] {
 		t.Fatalf("trusted service context rejected: allowed=%v err=%v", allowed, err)
 	}
 }
@@ -99,7 +99,7 @@ func TestFilterAIKSReadableDocumentsRejectsMissingPrincipalFromBrowser(t *testin
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/test", nil)
 	c.Request.RemoteAddr = "192.0.2.10:1234"
 	c.Set(model.RoleContextKey, model.RoleAdministrator)
-	if _, err := filterAIKSReadableDocuments(c, []string{"20260924180000-private1"}); err == nil {
+	if _, err := filterAIKSReadableDocuments(c, []string{"20260924180000-priv001"}); err == nil {
 		t.Fatal("missing browser principal was accepted")
 	}
 }
