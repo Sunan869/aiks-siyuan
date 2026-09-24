@@ -72,7 +72,7 @@ func TestAIKSClientRejectsUnsafeOriginsAndResponses(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(Principal{CompanyID: "corp-1", UserID: "user-a"})
+		_ = json.NewEncoder(w).Encode(Principal{InstanceID: "instance-1", CompanyID: "corp-1", UserID: "user-a"})
 	}))
 	defer server.Close()
 	client, err := NewClient(server.URL, "team.example.test")
