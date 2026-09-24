@@ -15,7 +15,7 @@ func TestPrincipalValidation(t *testing.T) {
 		CompanyID:   "corp-1",
 		UserID:      "user_a",
 		SessionID:   "session-1",
-		AuthVersion: "7",
+		AuthVersion: 7,
 	}
 	if !valid.Valid() {
 		t.Fatal("valid principal was rejected")
@@ -23,10 +23,10 @@ func TestPrincipalValidation(t *testing.T) {
 
 	tests := []Principal{
 		{},
-		{CompanyID: "corp-1", UserID: " user", SessionID: "session-1", AuthVersion: "7"},
-		{CompanyID: "corp-1", UserID: "user\nname", SessionID: "session-1", AuthVersion: "7"},
-		{CompanyID: "corp-1", UserID: "user", SessionID: "", AuthVersion: "7"},
-		{CompanyID: "corp-1", UserID: "user", SessionID: "session-1", AuthVersion: ""},
+		{CompanyID: "corp-1", UserID: " user", SessionID: "session-1", AuthVersion: 7},
+		{CompanyID: "corp-1", UserID: "user\nname", SessionID: "session-1", AuthVersion: 7},
+		{CompanyID: "corp-1", UserID: "user", SessionID: "", AuthVersion: 7},
+		{CompanyID: "corp-1", UserID: "user", SessionID: "session-1", AuthVersion: 0},
 	}
 	for _, principal := range tests {
 		if principal.Valid() {
@@ -36,12 +36,12 @@ func TestPrincipalValidation(t *testing.T) {
 }
 
 func TestPrincipalEqualIdentity(t *testing.T) {
-	left := Principal{CompanyID: "corp-1", UserID: "user-a", SessionID: "session-1", AuthVersion: "2"}
+	left := Principal{CompanyID: "corp-1", UserID: "user-a", SessionID: "session-1", AuthVersion: 2}
 	right := left
 	if !left.EqualIdentity(right) {
 		t.Fatal("identical principals were not equal")
 	}
-	right.AuthVersion = "3"
+	right.AuthVersion = 3
 	if left.EqualIdentity(right) {
 		t.Fatal("different auth versions were treated as the same session")
 	}
