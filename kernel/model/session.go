@@ -31,6 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/siyuan-note/logging"
+	"github.com/siyuan-note/siyuan/kernel/aiks"
 	"github.com/siyuan-note/siyuan/kernel/util"
 	"github.com/steambap/captcha"
 )
@@ -218,6 +219,11 @@ func CheckAuth(c *gin.Context) {
 		return
 	}
 
+	if aiks.TeamAuthEnabled() {
+		checkAIKSTeamAuth(c)
+		return
+	}
+
 	// 通过 API token (header: Authorization)
 	if authHeader := c.GetHeader("Authorization"); "" != authHeader {
 		var token string
@@ -390,6 +396,47 @@ func CheckAuth(c *gin.Context) {
 
 	c.Set(RoleContextKey, RoleAdministrator)
 	c.Next()
+}
+
+// checkAIKSTeamAuth 在团队模式下只接受 AIKS workspace session，或来自本机服务进程的 API Token。
+// 锁屏码、OIDC、BasicAuth 和 query token 均不能作为团队身份来源。
+func checkAIKSTeamAuth(c *gin.Context) {
+	if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+		var token string
+		if after, ok := strings.CutPrefix(authHeader, "Token "); ok {
+			token = after
+		} else if after, ok := strings.CutPrefix(authHeader, "token "); ok {
+			token = after
+		} else if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
+			token = after
+		} else if after, ok := strings.CutPrefix(authHeader, "bearer "); ok {
+			token = after
+		}
+		if token != "" && IsLocalRequest(c) && c.GetHeader("Origin") == "" {
+			if authByAPIToken(c, "header: Authorization", token) {
+				return
+			}
+		}
+	}
+
+	session := util.GetSession(c)
+	principal := util.GetAIKSPrincipal(session)
+	if principal != nil {
+		if !util.IsSessionOriginAllowed(c.GetHeader("Origin"), c.Request.Host) {
+			logging.LogWarnf("invalid Origin [%s] for AIKS team session [ip=%s]", c.GetHeader("Origin"), c.ClientIP())
+			c.JSON(http.StatusUnauthorized, map[string]any{"code": -1, "msg": "Auth failed: invalid Origin"})
+			c.Abort()
+			return
+		}
+		c.Set(aiks.PrincipalContextKey, principal)
+		// 团队用户默认不是 SiYuan 系统管理员。后续资源级中间件负责判断具体文档读写权限。
+		c.Set(RoleContextKey, RoleEditor)
+		c.Next()
+		return
+	}
+
+	c.JSON(http.StatusUnauthorized, map[string]any{"code": -1, "msg": "AIKS team authentication required"})
+	c.Abort()
 }
 
 // authByAPIToken 校验 API token，成功时赋予管理员角色并返回 true；
