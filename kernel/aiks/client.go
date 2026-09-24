@@ -1,0 +1,126 @@
+// SiYuan - From thought to insight, with agents
+// Copyright (c) 2020-present, b3log.org
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+package aiks
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+)
+
+const (
+	ServiceURLEnv  = "AIKS_TEAM_SERVICE_URL"
+	ServiceHostEnv = "AIKS_TEAM_SERVICE_HOST"
+
+	consumeTicketPath = "/api/v1/internal/workspace/tickets/consume"
+	maxResponseBytes  = 8 * 1024
+)
+
+type Client struct {
+	baseURL *url.URL
+	host    string
+	http    *http.Client
+}
+
+func NewClientFromEnvironment() (*Client, error) {
+	return NewClient(os.Getenv(ServiceURLEnv), os.Getenv(ServiceHostEnv))
+}
+
+func NewClient(rawURL, host string) (*Client, error) {
+	baseURL, err := url.Parse(rawURL)
+	if err != nil || baseURL.Scheme != "http" || baseURL.User != nil || baseURL.RawQuery != "" || baseURL.Fragment != "" ||
+		(baseURL.Path != "" && baseURL.Path != "/") {
+		return nil, errors.New("invalid AIKS team service URL")
+	}
+	ip := net.ParseIP(baseURL.Hostname())
+	if ip == nil || !ip.IsLoopback() || baseURL.Port() == "" {
+		return nil, errors.New("AIKS team service must use a fixed numeric loopback origin")
+	}
+	host = strings.TrimSpace(host)
+	if host == "" || len(host) > 512 || strings.ContainsAny(host, "/?#@") || containsControl(host) {
+		return nil, errors.New("invalid AIKS team service Host")
+	}
+	return &Client{
+		baseURL: baseURL,
+		host:    host,
+		http: &http.Client{
+			Timeout: 5 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
+	}, nil
+}
+
+func (client *Client) ConsumeWorkspaceTicket(ctx context.Context, ticket string) (*Principal, error) {
+	if !validTicket(ticket) {
+		return nil, errors.New("invalid AIKS workspace ticket")
+	}
+	body, err := json.Marshal(map[string]string{"ticket": ticket})
+	if err != nil {
+		return nil, errors.New("encode AIKS workspace ticket")
+	}
+	endpoint := *client.baseURL
+	endpoint.Path = consumeTicketPath
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.New("create AIKS workspace ticket request")
+	}
+	request.Host = client.host
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	response, err := client.http.Do(request)
+	if err != nil {
+		return nil, errors.New("AIKS workspace ticket exchange unavailable")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
+		return nil, errors.New("AIKS workspace ticket rejected")
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	if err != nil || len(data) > maxResponseBytes {
+		return nil, errors.New("invalid AIKS workspace ticket response")
+	}
+	principal := &Principal{}
+	if err = json.Unmarshal(data, principal); err != nil || !principal.Valid() {
+		return nil, errors.New("invalid AIKS workspace principal")
+	}
+	return principal, nil
+}
+
+func validTicket(ticket string) bool {
+	if len(ticket) != 64 {
+		return false
+	}
+	for _, r := range ticket {
+		if !(r >= '0' && r <= '9') && !(r >= 'a' && r <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func containsControl(value string) bool {
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return true
+		}
+	}
+	return false
+}
