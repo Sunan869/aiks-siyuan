@@ -43,8 +43,10 @@ func TestAIKSAuthExchangeCreatesWorkspaceSession(t *testing.T) {
 			t.Fatalf("ticket = %q, want %q", input["ticket"], ticket)
 		}
 		_ = json.NewEncoder(w).Encode(aiks.Principal{
+			InstanceID:  "instance-1",
 			CompanyID:   "corp-1",
 			UserID:      "user-a",
+			SpaceID:     "space-a",
 			SessionID:   "session-1",
 			AuthVersion: 9,
 		})
