@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	ErrPrincipalRejected = errors.New("AIKS workspace principal rejected")
+	ErrPrincipalRejected  = errors.New("AIKS workspace principal rejected")
 	ErrServiceUnavailable = errors.New("AIKS team service unavailable")
 )
 
