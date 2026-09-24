@@ -22,6 +22,11 @@ import (
 	"time"
 )
 
+var (
+	ErrPrincipalRejected = errors.New("AIKS workspace principal rejected")
+	ErrServiceUnavailable = errors.New("AIKS team service unavailable")
+)
+
 const (
 	ServiceURLEnv  = "AIKS_TEAM_SERVICE_URL"
 	ServiceHostEnv = "AIKS_TEAM_SERVICE_HOST"
@@ -90,14 +95,17 @@ func (client *Client) ValidatePrincipal(ctx context.Context, principal *Principa
 
 	response, err := client.http.Do(request)
 	if err != nil {
-		return errors.New("AIKS workspace principal validation unavailable")
+		return ErrServiceUnavailable
 	}
 	defer response.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
-	if response.StatusCode != http.StatusNoContent {
-		return errors.New("AIKS workspace principal rejected")
+	if response.StatusCode == http.StatusNoContent {
+		return nil
 	}
-	return nil
+	if response.StatusCode >= 400 && response.StatusCode < 500 {
+		return ErrPrincipalRejected
+	}
+	return ErrServiceUnavailable
 }
 
 func (client *Client) ConsumeWorkspaceTicket(ctx context.Context, ticket string) (*Principal, error) {
