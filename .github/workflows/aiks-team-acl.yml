@@ -57,4 +57,4 @@ jobs:
           go test ./aiks
           go test ./util
           go test ./api
-          go test ./model -run 'Test(AuthByAPITokenThrottle|IsLocalRequest|CheckAuthRemoteSessionOrigin|CheckAuthAIKSTeamBoundary)
+          go test ./model -run 'Test(AuthByAPITokenThrottle|IsLocalRequest|CheckAuthRemoteSessionOrigin|CheckAuthAIKSTeamBoundary)'
