@@ -24,8 +24,10 @@ const (
 // Principal 是 AIKS Service 完成企业认证后交给 SiYuan Kernel 的最小可信身份。
 // 这里不保存钉钉令牌、AIKS access token 或任何第三方凭据。
 type Principal struct {
+	InstanceID  string `json:"instance_id"`
 	CompanyID   string `json:"company_id"`
 	UserID      string `json:"user_id"`
+	SpaceID     string `json:"space_id"`
 	SessionID   string `json:"session_id"`
 	AuthVersion uint64 `json:"auth_version"`
 }
@@ -33,16 +35,20 @@ type Principal struct {
 // Valid 只接受有界、无控制字符的稳定身份字段。
 // 身份的真实性由后续 SSO ticket 交换验证，本函数仅负责拒绝畸形持久化内容。
 func (p Principal) Valid() bool {
-	return validIdentity(p.CompanyID) &&
+	return validIdentity(p.InstanceID) &&
+		validIdentity(p.CompanyID) &&
 		validIdentity(p.UserID) &&
+		validIdentity(p.SpaceID) &&
 		validIdentity(p.SessionID) &&
 		p.AuthVersion > 0
 }
 
 // EqualIdentity 判断两个 Principal 是否属于同一授权会话。
 func (p Principal) EqualIdentity(other Principal) bool {
-	return p.CompanyID == other.CompanyID &&
+	return p.InstanceID == other.InstanceID &&
+		p.CompanyID == other.CompanyID &&
 		p.UserID == other.UserID &&
+		p.SpaceID == other.SpaceID &&
 		p.SessionID == other.SessionID &&
 		p.AuthVersion == other.AuthVersion
 }
