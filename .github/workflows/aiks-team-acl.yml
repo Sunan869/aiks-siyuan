@@ -1,0 +1,52 @@
+name: AIKS Team ACL
+
+on:
+  push:
+    branches:
+      - feature/aiks-team-acl
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aiks-team-acl-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kernel-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: kernel/go.mod
+          cache-dependency-path: kernel/go.sum
+
+      - name: Go formatting
+        working-directory: kernel
+        shell: bash
+        run: |
+          files=(
+            aiks/principal.go
+            aiks/principal_test.go
+            aiks/client.go
+            aiks/client_test.go
+            api/aiks_auth.go
+            api/aiks_auth_test.go
+            model/session.go
+            model/session_test.go
+            util/session.go
+            util/session_test.go
+          )
+          unformatted="$(gofmt -l "${files[@]}")"
+          if [[ -n "$unformatted" ]]; then
+            printf 'Unformatted Go files:\n%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: AIKS team authentication tests
+        working-directory: kernel
+        run: go test ./aiks ./util ./model ./api
