@@ -3,8 +3,7 @@ import {MenuItem} from "./Menu";
 import {ipcRenderer} from "electron";
 /// #endif
 import {openHistory} from "../history/history";
-import {getOpenNotebookCount, originalPath, pathPosix, useShell} from "../util/pathName";
-import {fetchNewDailyNote, mountHelp, newDailyNote} from "../util/mount";
+import {originalPath, pathPosix, useShell} from "../util/pathName";
 import {fetchPost} from "../util/fetch";
 import {Constants} from "../constants";
 import {
@@ -15,18 +14,15 @@ import {
     setStorageVal,
     writeText,
 } from "../protyle/util/compatibility";
-import {openCard} from "../card/openCard";
 import {openSetting} from "../config";
 import {getAllDocks} from "../layout/getAll";
 import {getDockHotkey} from "../layout/dock/hotkey";
 import {exportLayout, getAllLayout} from "../layout/util";
 import {getDockByType} from "../layout/tabUtil";
-import {exitSiYuan, lockScreen} from "../dialog/processSystem";
+import {exitSiYuan} from "../dialog/processSystem";
 import {showMessage} from "../dialog/message";
-import {getFileTreeIconHTML} from "../emoji/fileTreeIcon";
 import {Dock} from "../layout/dock";
-import {escapeAttr, escapeHtml} from "../util/escape";
-import {viewCards} from "../card/viewCards";
+import {escapeAttr} from "../util/escape";
 import {Dialog} from "../dialog";
 import {hasClosestByClassName} from "../protyle/util/hasClosest";
 import {confirmDialog} from "../dialog/confirmDialog";
@@ -564,40 +560,6 @@ export const workspaceMenu = (app: App, rect: DOMRect) => {
         }).element);
         window.siyuan.menus.menu.append(new MenuItem({id: "separator_1", type: "separator"}).element);
         if (!window.siyuan.config.readonly) {
-            if (getOpenNotebookCount() < 2) {
-                window.siyuan.menus.menu.append(new MenuItem({
-                    id: "dailyNote",
-                    label: window.siyuan.languages.dailyNote,
-                    icon: "iconCalendar",
-                    accelerator: window.siyuan.config.keymap.general.dailyNote.custom,
-                    click: () => {
-                        newDailyNote(app);
-                    }
-                }).element);
-            } else {
-                const submenu: IMenu[] = [];
-                window.siyuan.notebooks.forEach(item => {
-                    if (!item.closed) {
-                        submenu.push({
-                            label: escapeHtml(item.name),
-                            iconHTML: getFileTreeIconHTML(item.icon, "notebook", "b3-menu__icon", true),
-                            accelerator: window.siyuan.storage[Constants.LOCAL_DAILYNOTEID] === item.id ? window.siyuan.config.keymap.general.dailyNote.custom : "",
-                            click: () => {
-                                fetchNewDailyNote(app, item.id);
-                                window.siyuan.storage[Constants.LOCAL_DAILYNOTEID] = item.id;
-                                setStorageVal(Constants.LOCAL_DAILYNOTEID, window.siyuan.storage[Constants.LOCAL_DAILYNOTEID]);
-                            }
-                        });
-                    }
-                });
-                window.siyuan.menus.menu.append(new MenuItem({
-                    id: "dailyNote",
-                    label: window.siyuan.languages.dailyNote,
-                    icon: "iconCalendar",
-                    type: "submenu",
-                    submenu
-                }).element);
-            }
             window.siyuan.menus.menu.append(new MenuItem({
                 id: "recentDocs",
                 label: window.siyuan.languages.recentDocs,
@@ -605,15 +567,6 @@ export const workspaceMenu = (app: App, rect: DOMRect) => {
                 accelerator: window.siyuan.config.keymap.general.recentDocs.custom,
                 click: () => {
                     openRecentDocs();
-                }
-            }).element);
-            window.siyuan.menus.menu.append(new MenuItem({
-                id: "lockScreen",
-                label: window.siyuan.languages.lockScreen,
-                icon: "iconLock",
-                accelerator: window.siyuan.config.keymap.general.lockScreen.custom,
-                click: () => {
-                    lockScreen();
                 }
             }).element);
             window.siyuan.menus.menu.append(new MenuItem({
