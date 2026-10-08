@@ -1,12 +1,12 @@
-import {Constants} from "./constants";
-import {Menus} from "./menus";
-import {Model} from "./layout/Model";
-import {onGetConfig} from "./boot/onGetConfig";
-import {initBlockPopover} from "./block/popover";
-import {applyCloudUserState, onSetaccount} from "./config/tabs/accountUi";
-import {addScript, addScriptSync} from "./protyle/util/addScript";
-import {genUUID} from "./util/genID";
-import {fetchGet, fetchPost} from "./util/fetch";
+import { Constants } from "./constants";
+import { Menus } from "./menus";
+import { Model } from "./layout/Model";
+import { onGetConfig } from "./boot/onGetConfig";
+import { initBlockPopover } from "./block/popover";
+import { applyCloudUserState, onSetaccount } from "./config/tabs/accountUi";
+import { addScript, addScriptSync } from "./protyle/util/addScript";
+import { genUUID } from "./util/genID";
+import { fetchGet, fetchPost } from "./util/fetch";
 import {
     addBaseURL,
     getDocDisplayName,
@@ -14,10 +14,10 @@ import {
     redirectToCheckAuth,
     setNoteBook
 } from "./util/pathName";
-import {registerServiceWorker} from "./util/serviceWorker";
-import {activateQueuedAVLocate, queueAVLocateRequest} from "./protyle/render/av/locate";
-import {openFileById} from "./editor/util";
-import {activateOnboarding, ensureOnboarding} from "./onboarding";
+import { registerServiceWorker } from "./util/serviceWorker";
+import { activateQueuedAVLocate, queueAVLocateRequest } from "./protyle/render/av/locate";
+import { openFileById } from "./editor/util";
+import { activateOnboarding, ensureOnboarding } from "./onboarding";
 import {
     bootSync,
     downloadProgress,
@@ -30,34 +30,35 @@ import {
     setRefDynamicText,
     transactionError
 } from "./dialog/processSystem";
-import {initMessage} from "./dialog/message";
-import {getAllModels, getAllTabs} from "./layout/getAll";
-import {getLocalStorage, isInMobileApp} from "./protyle/util/compatibility";
-import {isBrowser} from "./util/functions";
-import {checkPublishServiceClosed} from "./util/processMessage";
-import {hideAllElements} from "./protyle/ui/hideElements";
-import {loadPlugins} from "./plugin/loader";
-import {applyPluginReload, syncGlobalPluginConfig} from "./plugin/globalState";
+import { initMessage } from "./dialog/message";
+import { getAllModels, getAllTabs } from "./layout/getAll";
+import { getLocalStorage, isInMobileApp } from "./protyle/util/compatibility";
+import { isBrowser } from "./util/functions";
+import { checkPublishServiceClosed } from "./util/processMessage";
+import { hideAllElements } from "./protyle/ui/hideElements";
+import { loadPlugins } from "./plugin/loader";
+import { applyPluginReload, syncGlobalPluginConfig } from "./plugin/globalState";
 import "./assets/scss/base.scss";
-import {reloadEmoji} from "./emoji";
-import {processIOSPurchaseResponse} from "./util/iOSPurchase";
-import {updateServerAddresses} from "./config/tabs/accessRuntime";
-import {emitToPlugins} from "./plugin/EventBusCore";
+import { reloadEmoji } from "./emoji";
+import { processIOSPurchaseResponse } from "./util/iOSPurchase";
+import { updateServerAddresses } from "./config/tabs/accessRuntime";
+import { emitToPlugins } from "./plugin/EventBusCore";
 /// #if !BROWSER
-import {ipcRenderer} from "electron";
+import { ipcRenderer } from "electron";
 /// #endif
-import {getDockByType} from "./layout/tabUtil";
-import {Files} from "./layout/dock/Files";
-import {Tag} from "./layout/dock/Tag";
-import {appearanceConfigApi} from "./config/tabs/appearanceRuntime";
-import {renderSnippet} from "./config/util/snippets";
-import {refreshThemeStyle, reloadInlineStyles, setBodyHighlight} from "./util/assets";
-import {reloadSync} from "./util/reloadSync";
-import {setTitle} from "./util/processTitle";
-import {ensureUILayout} from "./util/ensureUILayout";
-import {applyEntryVisibility} from "./config/entryVisibility/runtime";
-import {removeBlockPanelEditors} from "./block/panelRemoval";
-import {initializeEnglishCommandTranslations} from "./command/english";
+import { getDockByType } from "./layout/tabUtil";
+import { Files } from "./layout/dock/Files";
+import { Tag } from "./layout/dock/Tag";
+import { appearanceConfigApi } from "./config/tabs/appearanceRuntime";
+import { renderSnippet } from "./config/util/snippets";
+import { refreshThemeStyle, reloadInlineStyles, setBodyHighlight } from "./util/assets";
+import { reloadSync } from "./util/reloadSync";
+import { setTitle } from "./util/processTitle";
+import { ensureUILayout } from "./util/ensureUILayout";
+import { applyEntryVisibility } from "./config/entryVisibility/runtime";
+import { removeBlockPanelEditors } from "./block/panelRemoval";
+import { initializeEnglishCommandTranslations } from "./command/english";
+import { isAiksEmbedded } from "./aiks/profile";
 
 export class App {
     public plugins: import("./plugin").Plugin[] = [];
@@ -72,7 +73,7 @@ export class App {
 
         this.appId = Constants.SIYUAN_APPID;
 
-        const mainWs = new Model({app: this});
+        const mainWs = new Model({ app: this });
         mainWs.connect({
             id: genUUID(),
             type: "main",
@@ -120,7 +121,7 @@ export class App {
                             reloadSync(this, data.data);
                             break;
                         case "reloaddoc":
-                            reloadSync(this, {upsertRootIDs: [data.data], removeRootIDs: []}, false, false, true);
+                            reloadSync(this, { upsertRootIDs: [data.data], removeRootIDs: [] }, false, false, true);
                             break;
                         case "readonly":
                             window.siyuan.config.editor.readOnly = data.data;
@@ -184,7 +185,7 @@ export class App {
                             break;
                         case "closeBox":
                         case "removeBox":
-                            removeBlockPanelEditors({notebookId: data.data.box});
+                            removeBlockPanelEditors({ notebookId: data.data.box });
                             getAllTabs().forEach((tab) => {
                                 if (tab.headElement) {
                                     const initTab = tab.headElement.getAttribute("data-initdata");
@@ -198,7 +199,7 @@ export class App {
                             });
                             break;
                         case "removeDoc":
-                            removeBlockPanelEditors({rootIDs: data.data.ids});
+                            removeBlockPanelEditors({ rootIDs: data.data.ids });
                             getAllTabs().forEach((tab) => {
                                 if (tab.headElement) {
                                     const initTab = tab.headElement.getAttribute("data-initdata");
@@ -237,7 +238,7 @@ export class App {
                             refreshThemeStyle(data.data.theme);
                             break;
                         case "openFileById":
-                            openFileById({app: this, id: data.data.id, action: [Constants.CB_GET_FOCUS]});
+                            openFileById({ app: this, id: data.data.id, action: [Constants.CB_GET_FOCUS] });
                             break;
                         case "filetreeSortChanged": {
                             const fileDock = getDockByType("file");
@@ -273,7 +274,7 @@ export class App {
                             }
                             break;
                         case "updateKernelPluginState": {
-                            const {name, state} = data.data as { name: string, state: TKernelPluginState };
+                            const { name, state } = data.data as { name: string, state: TKernelPluginState };
                             const plugin = this.plugins.find(p => p.name === name);
                             if (plugin) {
                                 plugin.kernel.state.code = state;
@@ -327,6 +328,13 @@ export class App {
                         onSetaccount();
                         setTitle("", true);
                         initMessage();
+                        /// #if BROWSER && !MOBILE
+                        // if (!isAiksEmbedded() && !isInMobileApp() && !isIOSDevice() && !window.siyuan.config.readonly &&
+                        //     !window.siyuan.isPublish && !isChromeBrowser()
+                        //     && window.siyuan.config.appearance.notifications?.browserCompatibility !== false) {
+                        //     showMessage(window.siyuan.languages.useChrome, 0, "error");
+                        // }
+                        /// #endif
                         window.siyuan.isReady = true;
                         mainWs.flushMainMessages();
                     });

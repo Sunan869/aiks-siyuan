@@ -61,3 +61,37 @@ test("aiks main graph host action reports unavailable before layout is ready", a
 
     assert.equal(result, "unavailable");
 });
+
+test("aiks AI assist host action delegates only doc identity and operation to the embedded bridge", async () => {
+    const hostModule = await import("./hostApi");
+    const calls: Array<{ docId: string; operation: string }> = [];
+    const expected = {
+        operation: "summary" as const,
+        summary: "结构化摘要",
+        tags: [] as string[],
+    };
+    const target = {
+        __AIKS_BRIDGE__: {
+            requestAiAssist: async (docId: string, operation: string) => {
+                calls.push({docId, operation});
+                return expected;
+            },
+        },
+    } as unknown as Window;
+
+    const api = hostModule.installAiksWorkbenchHostApi(target);
+    const result = await api.requestAiAssist("doc-123", "summary");
+
+    assert.deepEqual(calls, [{docId: "doc-123", operation: "summary"}]);
+    assert.deepEqual(result, expected);
+});
+
+test("aiks Workbench host API keeps product-level search out of the SiYuan host bridge", async () => {
+    const hostModule = await import("./hostApi");
+    const target = {} as unknown as Window;
+
+    const api = hostModule.installAiksWorkbenchHostApi(target);
+
+    assert.equal("showSearch" in api, false);
+    assert.equal("showWorkbenchSearch" in api, false);
+});

@@ -1,17 +1,47 @@
 export type AiksMainGraphOpenResult = "reused" | "created" | "unavailable";
 
+export type AiksAiAssistOperation =
+    | "summary"
+    | "tags"
+    | "category"
+    | "title"
+    | "key_conclusions"
+    | "structure"
+    | "rewrite";
+
+export interface AiksAiAssistSuggestion {
+    operation: AiksAiAssistOperation;
+    title?: string | null;
+    summary?: string | null;
+    tags?: string[];
+    category?: string | null;
+    text?: string | null;
+}
+
 export interface AiksMainGraphRuntime {
     activateExistingGlobalGraph: () => boolean;
     createGlobalGraph: () => boolean;
 }
 
+export interface AiksEmbeddedBridgeRuntime {
+    requestAiAssist: (
+        docId: string,
+        operation: AiksAiAssistOperation,
+    ) => Promise<AiksAiAssistSuggestion>;
+}
+
 export interface AiksWorkbenchHostApi {
     openGraph: () => Promise<boolean>;
+    requestAiAssist: (
+        docId: string,
+        operation: AiksAiAssistOperation,
+    ) => Promise<AiksAiAssistSuggestion>;
 }
 
 declare global {
     interface Window {
         aiksWorkbench?: AiksWorkbenchHostApi;
+        __AIKS_BRIDGE__?: AiksEmbeddedBridgeRuntime;
     }
 }
 
@@ -84,6 +114,13 @@ export const openAiksMainGraph = async (): Promise<boolean> => {
 export const installAiksWorkbenchHostApi = (target: Window = window): AiksWorkbenchHostApi => {
     const api: AiksWorkbenchHostApi = {
         openGraph: openAiksMainGraph,
+        requestAiAssist: async (docId, operation) => {
+            const bridge = target.__AIKS_BRIDGE__;
+            if (!bridge?.requestAiAssist) {
+                throw new Error("AIKS AI Assist bridge is unavailable");
+            }
+            return bridge.requestAiAssist(docId, operation);
+        },
     };
     target.aiksWorkbench = api;
     return api;
