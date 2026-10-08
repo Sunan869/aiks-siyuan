@@ -227,3 +227,138 @@ jobs:
             }
             Write-Host "Published immutable runtime release: $tag"
           }
+
+  unix-runtime:
+    name: ${{ matrix.platform }} embedded runtime
+    needs: windows-runtime
+    if: github.event_name == 'push' && github.ref == 'refs/heads/aiks/v4.2'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-x64
+            runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+          - platform: macos-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - platform: linux-x64
+            runner: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      SIYUAN_PROFILE: aiks-embedded
+      GO111MODULE: on
+      CGO_ENABLED: 1
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: kernel/go.mod
+          cache-dependency-path: kernel/go.sum
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Linux C toolchain
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config
+
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.25.0 --activate
+
+      - name: Install frontend
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Profile tests and frontend
+        working-directory: app
+        run: |
+          node --import tsx --test src/aiks/*.test.ts
+          pnpm run typecheck
+          pnpm run build
+
+      - name: Build native SiYuan kernel
+        working-directory: kernel
+        run: |
+          mkdir -p ../app/kernel
+          go build -tags "fts5 sqlcipher" -o ../app/kernel/SiYuan-Kernel -ldflags "-s -w -X github.com/siyuan-note/siyuan/kernel/util.Mode=prod" .
+          test -s ../app/kernel/SiYuan-Kernel
+          chmod +x ../app/kernel/SiYuan-Kernel
+
+      - name: Package runtime and checksum
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          FORK_COMMIT: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, shutil, zipfile
+          from pathlib import Path
+          platform = os.environ["PLATFORM"]
+          root = Path("app")
+          runtime = Path("runtime-output")
+          runtime.mkdir(exist_ok=True)
+          for name in ("kernel", "stage", "appearance", "guide"):
+              source = root / name
+              if not source.is_dir():
+                  raise SystemExit(f"Missing runtime directory: {source}")
+              shutil.copytree(source, runtime / name, dirs_exist_ok=True)
+          manifest = {
+              "workbenchVersion": "4.2.0",
+              "siyuanBaseVersion": "3.8.3",
+              "upstreamCommit": "8641553a1f07374001902d3ce773285db1292b2d",
+              "forkRepository": "Sunan869/aiks-siyuan",
+              "forkCommit": os.environ["FORK_COMMIT"],
+              "profile": "aiks-embedded",
+              "platform": platform,
+              "bridgeProtocol": 1,
+          }
+          (runtime / "aiks-runtime.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+          out = Path("runtime-assets")
+          out.mkdir(exist_ok=True)
+          filename = f"aiks-siyuan-runtime-{platform}.zip"
+          archive = out / filename
+          with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+              for p in runtime.rglob("*"):
+                  if p.is_file():
+                      z.write(p, p.relative_to(runtime))
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          (out / (filename + ".sha256")).write_text(f"{digest}  {filename}\n", encoding="ascii")
+          print(f"Created {archive}: {digest}")
+          PY
+
+      - name: Kernel smoke test
+        run: runtime-output/kernel/SiYuan-Kernel serve --help >/dev/null 2>&1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aiks-siyuan-runtime-${{ matrix.platform }}
+          path: runtime-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Append runtime assets to immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          tag="aiks-runtime-v4.2.0-${GITHUB_SHA:0:12}"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq '.targetCommitish' | grep -Fx "$GITHUB_SHA"
+          gh release upload "$tag" runtime-assets/* --repo "$GITHUB_REPOSITORY"
