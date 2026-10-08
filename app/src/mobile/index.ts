@@ -34,7 +34,6 @@ import {
     isInAndroid,
     isInIOS,
     isInMobileApp,
-    isIOSDevice,
     writeText
 } from "../protyle/util/compatibility";
 import {getCurrentEditor, openMobileFileById} from "./editor";
@@ -201,10 +200,6 @@ class App {
                             document.querySelector('meta[name="viewport"]').setAttribute("content", "width=device-width, height=device-height, interactive-widget=resizes-content, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover");
                         } else {
                             document.querySelector('meta[name="viewport"]').setAttribute("content", "width=device-width, height=device-height, interactive-widget=resizes-visual, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover");
-                            if (!isIOSDevice() && !window.siyuan.config.readonly && !window.siyuan.isPublish
-                                && window.siyuan.config.appearance.notifications?.browserCompatibility !== false) {
-                                showMessage(window.siyuan.languages.useChrome, 0, "error");
-                            }
                         }
                     } else if (!isInIOS()) {
                         document.querySelector('meta[name="viewport"]').setAttribute("content", "width=device-width, height=device-height, interactive-widget=resizes-visual, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover");
