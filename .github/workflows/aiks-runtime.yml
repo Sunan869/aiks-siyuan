@@ -1,4 +1,5 @@
 name: AIKS Runtime Package
+# Release rebuild: push on aiks/v4.2 triggers the immutable runtime package.
 
 on:
   pull_request:
